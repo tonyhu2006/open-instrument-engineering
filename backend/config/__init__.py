@@ -1,0 +1,1 @@
+# OpenInstrument Django Configuration Package
