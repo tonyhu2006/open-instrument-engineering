@@ -17,6 +17,8 @@ dependencies = [
     "django-mptt>=0.14",
     "django-filter>=24.0",
     "jsonschema>=4.20",
+    "pillow>=12.0.0",
+    "django-tenants>=3.6",
 ]
 
 [project.optional-dependencies]

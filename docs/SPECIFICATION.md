@@ -1,7 +1,7 @@
 # OpenInstrument - 软件规格说明书
 
-> **版本**: 0.2.0  
-> **最后更新**: 2025-12-11  
+> **版本**: 0.3.0  
+> **最后更新**: 2025-12-25  
 > **对标产品**: Hexagon SmartPlant Instrumentation (SPI)
 
 ---
@@ -18,7 +18,7 @@
 
 | 模块编号 | SPI 模块名称 | OpenInstrument 对应模块 |
 |----------|--------------|-------------------------|
-| 1.1 | Administration (管理模块) | `accounts` + `projects` |
+| 1.1 | Administration (管理模块) | `administration` + `tenants` |
 | 1.2 | Instrument Index (仪表索引) | `core_engineering` |
 | 1.3 | Engineering Data Editor (EDE) | 前端数据网格 |
 | 1.4 | Specifications (规格书) | `specifications` |
@@ -46,7 +46,8 @@
 | 层级 | 技术选型 | 版本要求 |
 |------|----------|----------|
 | **后端框架** | Django + Django REST Framework | Django 5.0+, DRF 3.14+ |
-| **数据库** | PostgreSQL | 16+ |
+| **多租户** | django-tenants | 3.6+ |
+| **数据库** | PostgreSQL (Schema隔离) | 16+ |
 | **缓存** | Redis | 7+ |
 | **前端框架** | React + TypeScript | React 18+, TypeScript 5+ |
 | **构建工具** | Vite | 5+ |
@@ -63,14 +64,14 @@
 OpenInstrument/
 ├── backend/                    # Django 后端
 │   ├── config/                # Django 配置
-│   │   ├── settings.py        # 主配置文件
+│   │   ├── settings.py        # 主配置文件 (含多租户配置)
 │   │   ├── urls.py            # URL 路由
 │   │   └── ...
 │   ├── apps/                  # Django 应用 (按 SPI 模块组织)
 │   │   ├── core/              # 核心功能 (健康检查等)
-│   │   ├── accounts/          # [1.1] 用户认证与权限
-│   │   ├── projects/          # [1.1] 多租户与项目管理
-│   │   ├── core_engineering/  # [1.2] 仪表索引核心模型
+│   │   ├── tenants/           # [1.1] 多租户管理 (ProjectTenant)
+│   │   ├── administration/    # [1.1] 用户/角色/组织管理
+│   │   ├── core_engineering/  # [1.2] 仪表索引核心模型 (租户数据)
 │   │   ├── specifications/    # [1.4] 规格书管理
 │   │   ├── wiring/            # [1.5] 接线模块
 │   │   ├── loop_drawings/     # [1.6] 回路图生成
@@ -102,6 +103,79 @@ OpenInstrument/
 └── README.md                  # 项目说明
 ```
 
+### 2.3 多租户架构 (Multi-Tenancy)
+
+系统采用 **PostgreSQL Schema 隔离** 实现多租户架构，每个工程项目拥有独立的数据库 Schema。
+
+#### 2.3.1 架构概述
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PostgreSQL 数据库                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    公共 Schema (public)                              │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │   │
+│  │  │Organization │ │    User     │ │    Role     │ │ProjectTenant│   │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘   │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │   │
+│  │  │ProjectDomain│ │Membership   │ │ TaskForce   │ │  AuditLog   │   │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐ │
+│  │ 租户 Schema          │  │ 租户 Schema          │  │ 租户 Schema          │ │
+│  │ (project_prj001)    │  │ (project_prj002)    │  │ (project_prj003)    │ │
+│  │ ┌───────┐ ┌───────┐ │  │ ┌───────┐ ┌───────┐ │  │ ┌───────┐ ┌───────┐ │ │
+│  │ │Client │ │ Site  │ │  │ │Client │ │ Site  │ │  │ │Client │ │ Site  │ │ │
+│  │ ├───────┤ ├───────┤ │  │ ├───────┤ ├───────┤ │  │ ├───────┤ ├───────┤ │ │
+│  │ │ Plant │ │Hierchy│ │  │ │ Plant │ │Hierchy│ │  │ │ Plant │ │Hierchy│ │ │
+│  │ ├───────┤ ├───────┤ │  │ ├───────┤ ├───────┤ │  │ ├───────┤ ├───────┤ │ │
+│  │ │ Loop  │ │  Tag  │ │  │ │ Loop  │ │  Tag  │ │  │ │ Loop  │ │  Tag  │ │ │
+│  │ ├───────┤ ├───────┤ │  │ ├───────┤ ├───────┤ │  │ ├───────┤ ├───────┤ │ │
+│  │ │InstTyp│ │Naming │ │  │ │InstTyp│ │Naming │ │  │ │InstTyp│ │Naming │ │ │
+│  │ └───────┘ └───────┘ │  │ └───────┘ └───────┘ │  │ └───────┘ └───────┘ │ │
+│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 2.3.2 数据分类
+
+| 分类 | Schema | 模型 | 说明 |
+|------|--------|------|------|
+| **共享数据** | public | Organization, User, Role | 跨项目共享 |
+| **租户元数据** | public | ProjectTenant, ProjectDomain | 租户配置 |
+| **成员关系** | public | ProjectMembership, TaskForce | 用户-项目关联 |
+| **审计日志** | public | AuditLog | 全局审计 |
+| **项目数据** | project_xxx | Client, Site, Plant | 项目层级 |
+| **工程数据** | project_xxx | PlantHierarchy, Loop, Tag | 仪表数据 |
+| **配置数据** | project_xxx | InstrumentType, NamingConvention | 项目配置 |
+
+#### 2.3.3 租户切换机制
+```
+前端请求流程:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. 用户选择项目 → 前端存储 project_id 到 localStorage                        │
+│ 2. API 请求自动添加 Header: X-Project-ID: {project_id}                       │
+│ 3. 后端中间件读取 Header，切换到对应 Schema                                   │
+│ 4. ORM 查询自动在租户 Schema 中执行                                          │
+│ 5. 响应返回当前租户的数据                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 2.3.4 API 端点
+```
+# 租户管理 API
+GET    /api/tenants/projects/              # 项目列表
+POST   /api/tenants/projects/              # 创建项目 (自动创建 Schema)
+GET    /api/tenants/projects/{id}/         # 项目详情
+PUT    /api/tenants/projects/{id}/         # 更新项目
+DELETE /api/tenants/projects/{id}/         # 删除项目 (删除 Schema)
+POST   /api/tenants/projects/{id}/switch/  # 切换到此项目
+GET    /api/tenants/projects/current/      # 当前项目上下文
+```
+
 ---
 
 ## 3. SPI 功能模块详细规格
@@ -109,7 +183,7 @@ OpenInstrument/
 ### 3.1 模块 1.1 - 管理模块 (Administration)
 
 > **SPI 对应**: Administration Module  
-> **Django App**: `accounts`, `projects`
+> **Django App**: `administration`, `tenants`
 
 #### 3.1.0 基于角色的用户管理系统 (RBAC)
 
@@ -510,124 +584,153 @@ GET    /api/me/task-forces/                  # 我的项目组列表
 PUT    /api/me/preferences/                  # 更新偏好设置
 ```
 
-#### 3.1.1 Project (工程项目 - 顶层对象)
+#### 3.1.1 ProjectTenant (工程项目/租户 - 顶层对象)
 ```
-目的: 工程项目是系统的顶层入口，所有数据都归属于某个工程项目
+目的: 工程项目是系统的顶层入口，同时作为多租户的租户单位
+模型: apps.tenants.models.ProjectTenant (继承 TenantMixin)
+Schema: public (共享)
+
 字段:
-  - id: UUID (主键)
+  - id: Integer (主键)
   - project_no: 项目编号 (唯一标识，如 "PRJ-2025-001", "ETH-100")
   - name: 项目名称 (如 "100万吨乙烯项目")
+  - schema_name: Schema 名称 (自动生成，如 "project_prj2025001")
+  - organization_id: Integer (关联组织)
   - description: 项目描述
   - status: 项目状态 (Active/OnHold/Completed/Archived)
   - start_date: 项目开始日期
   - end_date: 项目结束日期 (可选)
-  - contract_no: 合同编号 (可选)
-  - settings: JSONField (项目级配置)
   - hierarchy_config: JSONField (层级结构配置)
-  - created_by: FK -> User
   - created_at, updated_at: 时间戳
+
 约束:
   - project_no 全局唯一
+  - schema_name 全局唯一 (自动从 project_no 生成)
+
 说明:
-  - 工程项目是用户进入系统后的第一层对象
-  - 用户可以参与多个工程项目
-  - 项目创建时可配置层级结构，或使用默认结构
-  - 支持项目模板，快速创建相似结构的新项目
+  - 创建项目时自动创建独立的 PostgreSQL Schema
+  - 项目数据 (Client, Site, Plant, Tag 等) 存储在项目 Schema 中
+  - 用户通过 X-Project-ID Header 切换项目上下文
+  - 删除项目时自动删除对应 Schema
 ```
 
-#### 3.1.2 Client (客户/业主 - 第二层)
+#### 3.1.2 Client (客户/业主 - 租户数据)
 ```
 目的: 记录工程项目的客户/业主信息
+模型: apps.core_engineering.models.Client
+Schema: project_xxx (租户)
+
 字段:
-  - id: UUID (主键)
-  - project: FK -> Project
+  - id: Integer (主键)
   - name: 客户名称 (如 "中石化", "巴斯夫")
-  - code: 客户代码 (如 "SINOPEC", "BASF")
+  - code: 客户代码 (如 "SINOPEC", "BASF") - 租户内唯一
   - contact_person: 联系人
   - contact_email: 联系邮箱
   - contact_phone: 联系电话
   - address: 地址
-  - settings: JSONField (客户级配置)
   - created_at, updated_at: 时间戳
+
 约束:
-  - 一个 Project 通常有一个 Client (但支持多个，如联合项目)
+  - code 在租户 Schema 内唯一
+  - 无需 project FK (隐式属于当前租户)
+
 说明:
-  - Client 是工程项目的业主/甲方
+  - Client 存储在项目的独立 Schema 中
+  - 不同项目的 Client 数据完全隔离
   - 客户信息用于文档生成、报表抬头等
-  - 同一客户在不同项目中是独立的 Client 记录
 ```
 
-#### 3.1.3 Site (厂区/地点 - 第三层)
+#### 3.1.3 Site (厂区/地点 - 租户数据)
 ```
 目的: 支持客户在不同地理位置的多个厂区
+模型: apps.core_engineering.models.Site
+Schema: project_xxx (租户)
+
 字段:
-  - id: UUID (主键)
+  - id: Integer (主键)
   - client: FK -> Client
   - name: 厂区名称 (如 "镇海炼化", "上海基地")
   - code: 厂区代码 (如 "ZH", "SH")
   - location: 地理位置/地址
-  - country: 国家
-  - timezone: 时区
-  - settings: JSONField (厂区级配置)
-  - is_active: 是否激活
+  - address: 地址
+  - timezone: 时区 (默认 "UTC")
   - created_at, updated_at: 时间戳
+
 约束:
-  - code 在 client 内唯一
+  - (client, code) 唯一
+
 说明:
+  - Site 存储在项目的独立 Schema 中
   - 一个 Client 可以有一个或多个 Site
   - 典型场景：同一客户在不同城市/国家的工厂
-  - 单厂区项目只需创建一个 Site
 ```
 
-#### 3.1.4 Plant (工厂/装置 - 第四层)
+#### 3.1.4 Plant (工厂/装置 - 租户数据)
 ```
 目的: 定义具体的工厂或生产装置，对应 P&ID 的范围
+模型: apps.core_engineering.models.Plant
+Schema: project_xxx (租户)
+
 字段:
-  - id: UUID (主键)
+  - id: Integer (主键)
   - site: FK -> Site
   - name: 工厂/装置名称 (如 "乙烯装置", "芳烃联合装置")
   - code: 工厂代码 (如 "ETH", "ARO")
   - description: 描述
-  - pid_count: P&ID 数量 (自动计算)
-  - settings: JSONField (工厂级配置)
+  - capacity: 产能 (如 "1000 KTPA")
+  - is_active: 是否激活
   - created_at, updated_at: 时间戳
+
 约束:
-  - code 在 site 内唯一
+  - (site, code) 唯一
+
 说明:
+  - Plant 存储在项目的独立 Schema 中
   - Plant 对应一套完整的生产工艺
   - 一个 Site 可以有多个 Plant
-  - Plant 下包含 Area 和 Unit 的层级
 ```
 
-#### 3.1.5 PlantHierarchy (工厂层级 - Area/Unit)
+#### 3.1.5 PlantHierarchy (工厂层级 - 租户数据)
 ```
-目的: 定义工厂内部的层级结构 (Area → Unit)
+目的: 定义工厂内部的层级结构 (Plant → Area → Unit)
+模型: apps.core_engineering.models.PlantHierarchy (MPTT)
+Schema: project_xxx (租户)
+
 字段:
-  - id: UUID (主键)
+  - id: Integer (主键)
   - plant: FK -> Plant
-  - parent: FK -> self (自引用，支持多级)
+  - parent: FK -> self (自引用，MPTT)
   - name: 名称 (如 "反应区", "分离区", "Unit-100")
   - code: 代码 (如 "REACT", "SEP", "U100")
-  - level: 层级类型 (Area/Unit/SubUnit)
+  - node_type: 节点类型 (PLANT/AREA/UNIT)
   - description: 描述
-  - sort_order: 排序顺序
-  - settings: JSONField (层级配置)
+  - lft, rght, tree_id, level: MPTT 字段
+  - created_at, updated_at: 时间戳
+
 约束:
-  - code 在同级内唯一
+  - (parent, code) 唯一
+
 说明:
-  - Area: 工艺区域 (如反应区、分离区、公用工程区)
-  - Unit: 工艺单元 (如 Unit-100, Unit-200)
-  - SubUnit: 子单元 (可选，更细粒度)
-  - 仪表位号 (Tag) 归属于 Unit 或 Area
+  - 使用 MPTT 实现高效的树形查询
+  - PLANT: 工厂根节点
+  - AREA: 工艺区域 (如反应区、分离区)
+  - UNIT: 工艺单元 (仪表 Tag 归属于 Unit)
 ```
 
-#### 数据层级架构图
+#### 数据层级架构图 (多租户)
 ```
-Project (工程项目 - 顶层入口)
+公共 Schema (public):
+├── ProjectTenant (工程项目/租户)
+│   ├── project_no: "PRJ-2025-001"
+│   └── schema_name: "project_prj2025001"
+└── ProjectMembership (用户-项目关联)
+
+租户 Schema (project_prj2025001):
 └── Client (客户/业主)
-    └── Site(s) (厂区，可以是一个或多个)
-        └── Plant(s) (工厂/装置，对应 P&ID 范围)
-            └── Area(s) (工艺区域)
+    └── Site(s) (厂区)
+        └── Plant(s) (工厂/装置)
+            └── PlantHierarchy (MPTT)
+                ├── Area(s) (工艺区域)
                 └── Unit(s) (工艺单元)
                     └── Tags, Loops, Wiring, P&IDs...
 

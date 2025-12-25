@@ -6,8 +6,74 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 
-from .models import PlantHierarchy, Loop, InstrumentType, Tag
+from .models import Client, Site, Plant, PlantHierarchy, Loop, InstrumentType, Tag, NamingConvention
 
+
+# =============================================================================
+# Client, Site, Plant Serializers (Tenant-specific)
+# =============================================================================
+
+class ClientSerializer(serializers.ModelSerializer):
+    """Serializer for Client model (tenant-specific)."""
+    
+    class Meta:
+        model = Client
+        fields = [
+            "id", "code", "name", "contact_person", "contact_email",
+            "contact_phone", "address", "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SiteSerializer(serializers.ModelSerializer):
+    """Serializer for Site model (tenant-specific)."""
+    
+    client_name = serializers.CharField(source="client.name", read_only=True)
+    
+    class Meta:
+        model = Site
+        fields = [
+            "id", "client", "client_name", "code", "name",
+            "location", "address", "timezone", "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PlantSerializer(serializers.ModelSerializer):
+    """Serializer for Plant model (tenant-specific)."""
+    
+    site_name = serializers.CharField(source="site.name", read_only=True)
+    site_code = serializers.CharField(source="site.code", read_only=True)
+    
+    class Meta:
+        model = Plant
+        fields = [
+            "id", "site", "site_name", "site_code", "code", "name",
+            "description", "capacity", "is_active", "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class NamingConventionSerializer(serializers.ModelSerializer):
+    """Serializer for NamingConvention model (tenant-specific)."""
+    
+    hierarchy_format_display = serializers.CharField(
+        source="get_hierarchy_format_display", read_only=True
+    )
+    
+    class Meta:
+        model = NamingConvention
+        fields = [
+            "id", "name", "description", "hierarchy_format", "hierarchy_format_display",
+            "regex_pattern", "segment_definitions", "example_tags",
+            "is_default", "is_active", "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+# =============================================================================
+# PlantHierarchy Serializers
+# =============================================================================
 
 class PlantHierarchySerializer(serializers.ModelSerializer):
     """Serializer for PlantHierarchy model."""
@@ -34,6 +100,12 @@ class PlantHierarchySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "level", "created_at", "updated_at"]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make parent not required for root nodes (PLANT type)
+        self.fields['parent'].required = False
+        self.fields['parent'].allow_null = True
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_children_count(self, obj):

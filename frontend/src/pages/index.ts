@@ -1,2 +1,5 @@
 export { Dashboard } from './Dashboard'
 export { StatusPage } from './StatusPage'
+export { LoginPage } from './LoginPage'
+export { InstrumentsPage } from './InstrumentsPage'
+export { TagDetailPage } from './TagDetailPage'

@@ -10,8 +10,12 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 
-from .models import PlantHierarchy, Loop, InstrumentType, Tag
+from .models import Client, Site, Plant, PlantHierarchy, Loop, InstrumentType, Tag, NamingConvention
 from .serializers import (
+    ClientSerializer,
+    SiteSerializer,
+    PlantSerializer,
+    NamingConventionSerializer,
     PlantHierarchySerializer,
     PlantHierarchyTreeSerializer,
     LoopSerializer,
@@ -264,3 +268,64 @@ class TagViewSet(viewsets.ModelViewSet):
         )
         serializer = TagListSerializer(tags, many=True)
         return Response(serializer.data)
+
+
+# =============================================================================
+# Client, Site, Plant ViewSets (Tenant-specific)
+# =============================================================================
+
+class ClientViewSet(viewsets.ModelViewSet):
+    """ViewSet for Client model (tenant-specific data)."""
+    
+    queryset = Client.objects.all()
+    serializer_class = ClientSerializer
+    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["code", "name"]
+    ordering = ["name"]
+
+
+class SiteViewSet(viewsets.ModelViewSet):
+    """ViewSet for Site model (tenant-specific data)."""
+    
+    queryset = Site.objects.select_related("client").all()
+    serializer_class = SiteSerializer
+    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["client"]
+    search_fields = ["code", "name", "location"]
+    ordering = ["code"]
+
+
+class PlantViewSet(viewsets.ModelViewSet):
+    """ViewSet for Plant model (tenant-specific data)."""
+    
+    queryset = Plant.objects.select_related("site").all()
+    serializer_class = PlantSerializer
+    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["site", "is_active"]
+    search_fields = ["code", "name"]
+    ordering = ["code"]
+
+
+class NamingConventionViewSet(viewsets.ModelViewSet):
+    """ViewSet for NamingConvention model (tenant-specific data)."""
+    
+    queryset = NamingConvention.objects.all()
+    serializer_class = NamingConventionSerializer
+    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["hierarchy_format", "is_default", "is_active"]
+    search_fields = ["name"]
+    ordering = ["-is_default", "name"]
+    
+    @action(detail=True, methods=["post"])
+    def set_default(self, request, pk=None):
+        """Set this naming convention as the default."""
+        convention = self.get_object()
+        # Unset other defaults
+        NamingConvention.objects.filter(is_default=True).update(is_default=False)
+        convention.is_default = True
+        convention.save()
+        return Response({"status": "Set as default."})

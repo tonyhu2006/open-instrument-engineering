@@ -1,8 +1,8 @@
 # OpenInstrument - 实现状态跟踪
 
-> **版本**: 0.2.0  
-> **最后更新**: 2025-12-11  
-> **开发阶段**: 基础架构搭建  
+> **版本**: 0.3.0  
+> **最后更新**: 2025-12-25  
+> **开发阶段**: 多租户架构实现  
 > **对标产品**: Hexagon SmartPlant Instrumentation (SPI)
 
 ---
@@ -57,6 +57,7 @@
 | JWT 认证框架 | ✅ | 2025-12-11 | simplejwt (框架就绪，未实现登录) |
 | API 文档 (OpenAPI) | ✅ | 2025-12-11 | drf-spectacular |
 | Health Check API | ✅ | 2025-12-11 | /api/health/ |
+| **多租户架构 (Schema隔离)** | ✅ | 2025-12-25 | django-tenants, 每项目独立Schema |
 
 ### 1.3 前端基础
 
@@ -70,22 +71,63 @@
 | 侧边栏 Layout | ✅ | 2025-12-11 | Sidebar, Header, MainLayout |
 | Dashboard 页面 | ✅ | 2025-12-11 | 显示健康检查状态 |
 
+### 1.4 多租户架构 (Multi-Tenancy)
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| django-tenants 集成 | ✅ | 2025-12-25 | Schema-based isolation |
+| ProjectTenant 模型 | ✅ | 2025-12-25 | 每项目独立 Schema |
+| ProjectDomain 模型 | ✅ | 2025-12-25 | 域名映射 |
+| 租户中间件 | ✅ | 2025-12-25 | X-Project-ID Header |
+| 共享/租户应用分离 | ✅ | 2025-12-25 | SHARED_APPS / TENANT_APPS |
+| 租户 API | ✅ | 2025-12-25 | /api/tenants/projects/ |
+| 前端租户切换 | ✅ | 2025-12-25 | localStorage + Header |
+
+**架构说明:**
+```
+公共 Schema (public):
+├── Organization (组织)
+├── User (用户)
+├── Role (角色)
+├── ProjectTenant (项目/租户)
+├── ProjectDomain (域名)
+├── ProjectMembership (项目成员)
+├── ProjectTaskForce (项目组)
+├── TaskForceMembership (项目组成员)
+└── AuditLog (审计日志)
+
+租户 Schema (project_xxx):
+├── Client (客户)
+├── Site (站点)
+├── Plant (工厂)
+├── PlantHierarchy (工厂层级)
+├── Loop (回路)
+├── InstrumentType (仪表类型)
+├── Tag (仪表标签)
+└── NamingConvention (命名规范)
+```
+
+**租户切换方式:**
+- 前端通过 `X-Project-ID` HTTP Header 指定当前项目
+- 中间件自动切换到对应项目的 Schema
+- API 自动过滤当前租户的数据
+
 ---
 
 ## 2. SPI 模块 1.1 - 管理模块 (Administration)
 
-> **完成度**: 25%
+> **完成度**: 70%
 
 ### 2.0 基于角色的用户管理系统 (RBAC)
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| Role 模型 | 📋 | - | 角色定义 |
-| User 模型扩展 | 📋 | - | 关联角色 |
-| 角色层级 (Level 1-5) | 📋 | - | Guest → Admin |
-| 数据权限矩阵 | 📋 | - | 按专业划分 |
-| 角色管理 API | 📋 | - | CRUD |
-| 用户管理 API | 📋 | - | CRUD + 激活/停用 |
+| Role 模型 | ✅ | 2025-12-25 | 5 级角色层级 |
+| User 模型扩展 | ✅ | 2025-12-25 | AbstractUser + organization + role |
+| 角色层级 (Level 1-5) | ✅ | 2025-12-25 | Guest → Admin |
+| 数据权限矩阵 | ✅ | 2025-12-25 | JSONField permissions |
+| 角色管理 API | ✅ | 2025-12-25 | CRUD |
+| 用户管理 API | ✅ | 2025-12-25 | CRUD + activate/deactivate + me |
 | 角色管理 UI | 📋 | - | Administrator only |
 | 用户管理 UI | 📋 | - | Administrator only |
 
@@ -103,11 +145,11 @@ Level 1: Guest (访客) - 所有数据只读
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| ProjectTaskForce 模型 | 📋 | - | 项目组 |
-| TaskForceMembership 模型 | 📋 | - | 成员关系 |
-| 项目组创建 (Admin) | 📋 | - | 两种方式 |
-| 项目组创建 (PE) | 📋 | - | 只能基于项目号 |
-| 成员管理 API | 📋 | - | 添加/移除 |
+| ProjectTaskForce 模型 | ✅ | 2025-12-25 | 项目组 |
+| TaskForceMembership 模型 | ✅ | 2025-12-25 | 成员关系 |
+| 项目组创建 (Admin) | ✅ | 2025-12-25 | API 支持 |
+| 项目组创建 (PE) | ✅ | 2025-12-25 | API 支持 |
+| 成员管理 API | ✅ | 2025-12-25 | add_member/remove_member |
 | 项目组权限隔离 | 📋 | - | 不可互访 |
 | 项目组管理 UI | 📋 | - | |
 
@@ -136,16 +178,16 @@ Project Engineer:
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| NamingConvention 模型 | 📋 | - | 正则表达式验证 |
-| 层级格式类型 | 📋 | - | 6 种预定义格式 |
-| 段定义 (Segment Definitions) | 📋 | - | JSONField 配置 |
-| 预设命名规则模板 | 📋 | - | 7 种预设模板 |
-| 位号格式强制规范 | 📋 | - | |
-| 命名规则验证流程 | 📋 | - | 正则+层级+唯一性 |
-| 自动生成位号 | 📋 | - | 基于规则自动生成 |
+| NamingConvention 模型 | ✅ | 2025-12-25 | 正则表达式验证 |
+| 层级格式类型 | ✅ | 2025-12-25 | 6 种预定义格式 |
+| 段定义 (Segment Definitions) | ✅ | 2025-12-25 | JSONField 配置 |
+| 预设命名规则模板 | ✅ | 2025-12-25 | 演示数据含 2 种模板 |
+| 位号格式强制规范 | ✅ | 2025-12-25 | validate_tag_number |
+| 命名规则验证流程 | ✅ | 2025-12-25 | 正则验证 |
+| 自动生成位号 | ⚠️ | 2025-12-25 | 基础实现，待完善 |
 | 命名规则管理 UI | 📋 | - | |
 | 自定义正则编辑器 | 📋 | - | 高级用户 |
-| 命名规则 API | 📋 | - | CRUD + 验证 + 生成 |
+| 命名规则 API | ✅ | 2025-12-25 | CRUD + validate_tag + generate_tag + set_default |
 
 **支持的层级格式:**
 ```
@@ -168,17 +210,17 @@ Project Engineer:
 - 接线箱命名格式: JB-100-01
 ```
 
-### 2.3 项目层级管理 (新架构)
+### 2.3 项目层级管理 (多租户架构)
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| Project 模型 (顶层) | 📋 | - | 工程项目，用 project_no 作为 ID |
-| Client 模型 | 📋 | - | 客户/业主 (第二层) |
-| Site 模型 | 📋 | - | 厂区/地点 (第三层，支持多个) |
-| Plant 模型 | 📋 | - | 工厂/装置 (第四层) |
-| PlantHierarchy 模型 | 📋 | - | Area/Unit 层级 |
-| Organization 模型 (可选) | 📋 | - | SaaS 多租户隔离 |
-| 层级结构配置 | 📋 | - | hierarchy_config JSON |
+| ProjectTenant 模型 (顶层) | ✅ | 2025-12-25 | 继承 TenantMixin，自动创建 Schema |
+| Client 模型 | ✅ | 2025-12-25 | 租户数据 (core_engineering) |
+| Site 模型 | ✅ | 2025-12-25 | 租户数据 (core_engineering) |
+| Plant 模型 | ✅ | 2025-12-25 | 租户数据 (core_engineering) |
+| PlantHierarchy 模型 | ✅ | 2025-12-25 | MPTT 树形结构 (租户数据) |
+| Organization 模型 | ✅ | 2025-12-25 | 公共 Schema (administration) |
+| 层级结构配置 | ✅ | 2025-12-25 | hierarchy_config JSONField |
 | 层级模板 (standard/simple) | 📋 | - | 预设模板 |
 | 项目创建向导 UI | 📋 | - | 配置层级结构 |
 | 层级编辑 UI | 📋 | - | 树形结构管理 |
@@ -206,16 +248,27 @@ Project (工程项目 - 顶层入口)
 - **物理设备** (接线箱、控制柜) 按物理位置归属
 - **Cable** 跨层级引用，连接不同位置
 
-### 2.4 用户认证与授权 (RBAC)
+### 2.4 多租户与项目层级 (Multi-tenancy & Project Hierarchy)
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| User 模型扩展 | 📋 | - | 扩展 AbstractUser |
-| 登录/登出 API | 📋 | - | |
-| Token 刷新 | 📋 | - | |
-| Role 模型 | 📋 | - | RBAC |
-| Permission 模型 | 📋 | - | |
-| UserProjectRole 关联 | 📋 | - | |
+| Organization 模型 | ✅ | 2025-12-25 | 多租户顶层 |
+| Project 模型 | ✅ | 2025-12-25 | 项目入口 |
+| Client 模型 | ✅ | 2025-12-25 | 业主/客户 |
+| Site 模型 | ✅ | 2025-12-25 | 厂区 |
+| Plant 模型 | ✅ | 2025-12-25 | 工厂/装置 |
+| 项目层级 API | ✅ | 2025-12-25 | CRUD + hierarchy |
+| AuditLog 模型 | ✅ | 2025-12-25 | 审计日志 |
+| 审计日志 API | ✅ | 2025-12-25 | 只读查询 |
+
+### 2.5 用户认证与授权
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| User 模型扩展 | ✅ | 2025-12-25 | AbstractUser + org + role |
+| 登录/登出 API | ⚠️ | - | JWT 已配置，需前端集成 |
+| Token 刷新 | ⚠️ | - | SimpleJWT 已配置 |
+| ProjectMembership 模型 | ✅ | 2025-12-25 | 用户-项目-角色关联 |
 | 权限检查装饰器 | 📋 | - | |
 | 登录页面 UI | 📋 | - | |
 | 用户管理 UI | 📋 | - | |
@@ -596,7 +649,10 @@ DI/DO: 干接点/有源信号/继电器
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| 主界面布局 | 📋 | - | 顶部导航+侧边栏+主工作区 |
+| 主界面布局 | ✅ | 2025-12-11 | 顶部导航+侧边栏+主工作区 |
+| 登录页面 | ✅ | 2025-12-25 | JWT 认证集成 |
+| 认证状态管理 | ✅ | 2025-12-25 | Zustand store |
+| 路由保护 | ✅ | 2025-12-25 | ProtectedRoute 组件 |
 | 层级导航树 (Hierarchy Navigator) | 📋 | - | 树形展示项目层级 |
 | 上下文选择器 (Context Selector) | 📋 | - | 快速切换层级范围 |
 | 面包屑导航 | 📋 | - | 显示当前位置 |
@@ -606,8 +662,8 @@ DI/DO: 干接点/有源信号/继电器
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| 项目仪表盘 | 📋 | - | 概览统计+层级树 |
-| 仪表索引表 ★ | 📋 | - | 核心页面，TanStack Table |
+| 项目仪表盘 | ✅ | 2025-12-11 | 概览统计 |
+| 仪表索引表 ★ | ✅ | 2025-12-25 | TanStack Table + 排序/过滤/分页 |
 | 位号详情/规格书 | 📋 | - | 动态表单 |
 | 回路管理 | 📋 | - | 回路列表 |
 | 回路图查看 | 📋 | - | React Flow |
@@ -619,10 +675,12 @@ DI/DO: 干接点/有源信号/继电器
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| 层级导航树组件 | 📋 | - | 树形+搜索+右键菜单 |
-| 上下文选择器组件 | 📋 | - | 级联下拉 |
-| 仪表索引表组件 | 📋 | - | 虚拟滚动+行内编辑 |
-| 规格书表单组件 | 📋 | - | 动态表单生成 |
+| 层级导航树组件 | ✅ | 2025-12-25 | HierarchyTree + HierarchySelector |
+| 上下文选择器组件 | ✅ | 2025-12-25 | 级联下拉 + Tab 切换 |
+| 仪表索引表组件 | ✅ | 2025-12-25 | TanStack Table + 排序/过滤 |
+| 虚拟滚动表格 | ✅ | 2025-12-25 | VirtualTable 组件 |
+| 行内编辑单元格 | ✅ | 2025-12-25 | EditableCell 组件 |
+| 规格书表单组件 | ✅ | 2025-12-25 | TagDetailPage 动态表单 |
 | 接线路径图组件 | 📋 | - | 可视化节点连接 |
 | RIO 卡件视图组件 | 📋 | - | 槽位+通道显示 |
 | 详情面板组件 | 📋 | - | 右侧可折叠面板 |
@@ -732,12 +790,13 @@ RTL 语言:
 - [x] Tag (核心模型)
 - [x] DRF Serializers & ViewSets
 
-### Phase 3: 企业级基础 📋 (计划中)
-- [ ] Organization + Site + Project 模型
-- [ ] User 扩展 + RBAC
-- [ ] NamingConvention 命名规则
-- [ ] 乐观锁并发控制
-- [ ] AuditLog 审计日志
+### Phase 3: 企业级基础 ✅ (已完成)
+- [x] Organization + Site + Project + Client + Plant 模型
+- [x] User 扩展 + RBAC (Role, ProjectMembership)
+- [x] NamingConvention 命名规则
+- [x] ProjectTaskForce 工程项目组
+- [x] AuditLog 审计日志
+- [ ] 乐观锁并发控制 (待实现)
 
 ### Phase 4: 前端核心页面 📋 (计划中)
 - [ ] 仪表索引表 (TanStack Table)
@@ -780,6 +839,58 @@ RTL 语言:
 ---
 
 ## 变更日志
+
+### 2025-12-25 (v0.3.1) - Phase 4 前端核心页面 (进行中)
+- **登录页面实现**
+  - JWT 认证集成 (SimpleJWT)
+  - 登录表单 UI (现代化设计)
+  - 演示账户显示
+- **认证状态管理**
+  - Zustand store (authStore)
+  - Token 持久化 (localStorage)
+  - 自动登出处理
+- **路由保护**
+  - ProtectedRoute 组件
+  - 未认证重定向到登录页
+- **仪表索引表**
+  - TanStack Table 集成
+  - 列排序、全局搜索、分页
+  - 行选择和批量操作 UI
+  - 状态标签样式
+- **API 客户端扩展**
+  - 认证 API (login, refresh, me)
+  - 组织/项目/客户/厂区 API
+  - 工程数据 API (tags, loops, hierarchies)
+- **新增依赖**
+  - @tanstack/react-table
+  - @tanstack/react-query
+  - zustand
+  - react-hook-form, zod
+
+### 2025-12-25 (v0.3.0) - Phase 3 企业级基础
+- **新增 administration app** - 多租户与项目层级管理
+- 添加 Organization 模型 (多租户顶层)
+- 添加 Project 模型 (项目入口，使用 project_no)
+- 添加 Client 模型 (业主/客户)
+- 添加 Site 模型 (厂区)
+- 添加 Plant 模型 (工厂/装置)
+- **RBAC 系统实现**
+  - Role 模型 (5 级角色层级)
+  - User 模型扩展 (AbstractUser + organization + role)
+  - ProjectMembership 模型 (用户-项目-角色关联)
+- **工程项目组实现**
+  - ProjectTaskForce 模型
+  - TaskForceMembership 模型
+  - 成员管理 API (add_member/remove_member)
+- **命名规则实现**
+  - NamingConvention 模型 (6 种层级格式)
+  - 位号验证 API (validate_tag)
+  - 位号生成 API (generate_tag)
+- **审计日志实现**
+  - AuditLog 模型 (Who/When/What)
+  - 审计日志查询 API
+- 添加 seed_admin_data 演示数据命令
+- 创建 4 个演示用户账户
 
 ### 2025-12-24 (v0.2.17)
 - 扩展国际化语言支持至 12 种语言

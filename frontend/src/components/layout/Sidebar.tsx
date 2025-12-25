@@ -1,15 +1,18 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Tag,
   GitBranch,
   Settings,
-  Database,
   Cable,
   FileText,
   Activity,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HierarchySelector, HierarchyTree } from '@/components/hierarchy'
 
 interface NavItem {
   title: string
@@ -23,7 +26,6 @@ const navItems: NavItem[] = [
   { title: 'Loops', href: '/loops', icon: GitBranch },
   { title: 'Spec Sheets', href: '/specs', icon: FileText },
   { title: 'Wiring', href: '/wiring', icon: Cable },
-  { title: 'Plant Hierarchy', href: '/hierarchy', icon: Database },
 ]
 
 const bottomNavItems: NavItem[] = [
@@ -32,6 +34,8 @@ const bottomNavItems: NavItem[] = [
 ]
 
 export function Sidebar() {
+  const [showHierarchyTree, setShowHierarchyTree] = useState(false)
+
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
       <div className="flex h-16 items-center border-b px-6">
@@ -40,7 +44,32 @@ export function Sidebar() {
         </h1>
       </div>
 
-      <nav className="flex-1 space-y-1 p-4">
+      {/* Hierarchy Selector */}
+      <div className="p-3 border-b">
+        <HierarchySelector />
+      </div>
+
+      {/* Hierarchy Tree Toggle */}
+      <button
+        onClick={() => setShowHierarchyTree(!showHierarchyTree)}
+        className="flex items-center justify-between px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors border-b"
+      >
+        <span>PROJECT HIERARCHY</span>
+        {showHierarchyTree ? (
+          <ChevronDown className="h-3 w-3" />
+        ) : (
+          <ChevronRight className="h-3 w-3" />
+        )}
+      </button>
+
+      {/* Hierarchy Tree */}
+      {showHierarchyTree && (
+        <div className="max-h-48 overflow-y-auto border-b">
+          <HierarchyTree />
+        </div>
+      )}
+
+      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.href}

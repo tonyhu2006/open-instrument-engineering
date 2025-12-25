@@ -1,5 +1,8 @@
 """
 Django settings for OpenInstrument project.
+
+Multi-tenant configuration using django-tenants for PostgreSQL schema isolation.
+Each project gets its own schema for complete data separation.
 """
 
 import os
@@ -20,8 +23,17 @@ DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-# Application definition
-INSTALLED_APPS = [
+# =============================================================================
+# Multi-Tenancy Configuration (django-tenants)
+# =============================================================================
+
+# Tenant model configuration
+TENANT_MODEL = "tenants.ProjectTenant"
+TENANT_DOMAIN_MODEL = "tenants.ProjectDomain"
+
+# Apps that have data in the public schema (shared across all tenants)
+SHARED_APPS = [
+    "django_tenants",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -34,19 +46,43 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_spectacular",
     "django_filters",
-    "mptt",
-    # Local apps
+    # Local shared apps
     "apps.core",
-    "apps.core_engineering",
+    "apps.tenants",
+    "apps.administration",  # Users, Organizations, Roles are shared
 ]
 
+# Apps that have data in tenant schemas (project-specific)
+TENANT_APPS = [
+    "django.contrib.contenttypes",
+    # Third-party apps needed in tenant schema
+    "mptt",
+    # Local tenant apps
+    "apps.core_engineering",  # Tags, Loops, PlantHierarchy are per-project
+]
+
+# All installed apps (union of shared and tenant apps)
+INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
+
+# Custom User Model
+AUTH_USER_MODEL = "administration.User"
+
+# Public schema name
+PUBLIC_SCHEMA_NAME = "public"
+
+# Show tenant info in admin
+SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
+
 MIDDLEWARE = [
+    # Tenant middleware must be first
+    "apps.tenants.middleware.HeaderBasedTenantMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.tenants.middleware.TenantContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -71,10 +107,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Database - PostgreSQL
+# Database - PostgreSQL with django-tenants
+DATABASE_ROUTERS = (
+    'django_tenants.routers.TenantSyncRouter',
+)
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME", "openinstrument"),
         "USER": os.getenv("DB_USER", "openinstrument"),
         "PASSWORD": os.getenv("DB_PASSWORD", "openinstrument_dev_password"),

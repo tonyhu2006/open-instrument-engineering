@@ -1,8 +1,10 @@
 """
-Core Engineering Models - Plant Hierarchy, Loop, InstrumentType, Tag
+Core Engineering Models - Project Hierarchy, Plant Hierarchy, Loop, InstrumentType, Tag
 
 These models form the foundation of the instrumentation engineering system.
 Data integrity is critical for engineering applications.
+
+All models in this file are TENANT-SPECIFIC - they are stored in project schemas.
 """
 
 from django.core.exceptions import ValidationError
@@ -13,6 +15,156 @@ import jsonschema
 
 from apps.core.models import TimeStampedModel
 
+
+# =============================================================================
+# Project Hierarchy Models (Tenant-specific)
+# =============================================================================
+
+class Client(TimeStampedModel):
+    """
+    Client - Owner/customer of the project.
+    Stored in tenant schema - no project FK needed (implicit from schema).
+    """
+    
+    name = models.CharField(
+        max_length=300,
+        help_text=_("Client/owner name"),
+    )
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text=_("Client code (e.g., 'SINOPEC', 'CNPC')"),
+    )
+    contact_person = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text=_("Primary contact person"),
+    )
+    contact_email = models.EmailField(
+        blank=True,
+        help_text=_("Contact email"),
+    )
+    contact_phone = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text=_("Contact phone"),
+    )
+    address = models.TextField(
+        blank=True,
+        help_text=_("Client address"),
+    )
+    
+    class Meta:
+        verbose_name = _("Client")
+        verbose_name_plural = _("Clients")
+        ordering = ["name"]
+    
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class Site(TimeStampedModel):
+    """
+    Site - Physical location/factory site.
+    Hierarchy: Client → Site
+    """
+    
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="sites",
+        help_text=_("Client this site belongs to"),
+    )
+    name = models.CharField(
+        max_length=300,
+        help_text=_("Site name"),
+    )
+    code = models.CharField(
+        max_length=50,
+        help_text=_("Site code (e.g., 'ZH' for Zhenhai, 'SH' for Shanghai)"),
+    )
+    location = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text=_("Geographic location"),
+    )
+    address = models.TextField(
+        blank=True,
+        help_text=_("Site address"),
+    )
+    timezone = models.CharField(
+        max_length=50,
+        default="UTC",
+        help_text=_("Site timezone (e.g., 'Asia/Shanghai')"),
+    )
+    
+    class Meta:
+        verbose_name = _("Site")
+        verbose_name_plural = _("Sites")
+        ordering = ["code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "code"],
+                name="unique_site_code_per_client",
+            ),
+        ]
+    
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class Plant(TimeStampedModel):
+    """
+    Plant - Factory/process unit within a site.
+    Hierarchy: Client → Site → Plant
+    """
+    
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="plants",
+        help_text=_("Site this plant belongs to"),
+    )
+    name = models.CharField(
+        max_length=300,
+        help_text=_("Plant name (e.g., 'Ethylene Plant', 'Aromatics Unit')"),
+    )
+    code = models.CharField(
+        max_length=50,
+        help_text=_("Plant code (e.g., 'ETH', 'ARO', 'P-001')"),
+    )
+    description = models.TextField(
+        blank=True,
+        help_text=_("Plant description"),
+    )
+    capacity = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=_("Plant capacity (e.g., '1000 KTPA')"),
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text=_("Whether this plant is active"),
+    )
+    
+    class Meta:
+        verbose_name = _("Plant")
+        verbose_name_plural = _("Plants")
+        ordering = ["code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "code"],
+                name="unique_plant_code_per_site",
+            ),
+        ]
+    
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+# =============================================================================
+# Plant Internal Hierarchy (MPTT)
+# =============================================================================
 
 class PlantHierarchy(MPTTModel, TimeStampedModel):
     """
@@ -382,3 +534,93 @@ class Tag(TimeStampedModel):
     def full_tag(self):
         """Return the full tag identifier including unit path."""
         return f"{self.unit.full_path} / {self.tag_number}"
+
+
+# =============================================================================
+# Naming Conventions (Tenant-specific)
+# =============================================================================
+
+class NamingConvention(TimeStampedModel):
+    """
+    NamingConvention - Defines tag naming rules for a project.
+    Stored in tenant schema - no project FK needed (implicit from schema).
+    """
+    
+    class HierarchyFormat(models.TextChoices):
+        FULL = "FULL", _("Site-Plant-Area-Unit-Function-Sequence")
+        NO_SITE = "NO_SITE", _("Plant-Area-Unit-Function-Sequence")
+        NO_SITE_PLANT = "NO_SITE_PLANT", _("Area-Unit-Function-Sequence")
+        UNIT_ONLY = "UNIT_ONLY", _("Unit-Function-Sequence")
+        FLEXIBLE_PREFIX = "FLEXIBLE_PREFIX", _("XXXX-Unit-Function-Sequence")
+        CUSTOM = "CUSTOM", _("Custom Regex")
+    
+    name = models.CharField(
+        max_length=200,
+        help_text=_("Convention name (e.g., 'ISA-5.1 Standard')"),
+    )
+    description = models.TextField(
+        blank=True,
+        help_text=_("Convention description"),
+    )
+    hierarchy_format = models.CharField(
+        max_length=20,
+        choices=HierarchyFormat.choices,
+        default=HierarchyFormat.UNIT_ONLY,
+        help_text=_("Hierarchy format type"),
+    )
+    regex_pattern = models.CharField(
+        max_length=500,
+        help_text=_(
+            "Regex pattern for validation. "
+            "Example: ^[A-Z]{2,3}-\\d{3}[A-Z]?$"
+        ),
+    )
+    segment_definitions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_(
+            "Segment definitions. Example: "
+            "[{'name': 'function', 'type': 'letters', 'length': 2}, ...]"
+        ),
+    )
+    example_tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Example valid tags for this convention"),
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text=_("Whether this is the default convention"),
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text=_("Whether this convention is active"),
+    )
+    
+    class Meta:
+        verbose_name = _("Naming Convention")
+        verbose_name_plural = _("Naming Conventions")
+        ordering = ["-is_default", "name"]
+    
+    def __str__(self):
+        return self.name
+    
+    def validate_tag_number(self, tag_number: str) -> tuple[bool, str]:
+        """Validate a tag number against this convention."""
+        import re
+        try:
+            pattern = re.compile(self.regex_pattern)
+            if pattern.match(tag_number):
+                return True, ""
+            else:
+                return False, f"Tag number '{tag_number}' does not match pattern: {self.regex_pattern}"
+        except re.error as e:
+            return False, f"Invalid regex pattern: {e}"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one default convention
+        if self.is_default:
+            NamingConvention.objects.filter(
+                is_default=True
+            ).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
