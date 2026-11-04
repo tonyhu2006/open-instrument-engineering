@@ -14,10 +14,15 @@ from rest_framework.response import Response
 from .models import (
     Organization,
     Role,
-    ProjectMembership,
     ProjectTaskForce,
     TaskForceMembership,
     AuditLog,
+)
+from .permissions import (
+    IsAdministrator,
+    IsAuthenticatedReadOrAdminWrite,
+    TaskForcePermission,
+    TaskForceMembershipPermission,
 )
 from .serializers import (
     OrganizationSerializer,
@@ -27,7 +32,6 @@ from .serializers import (
     UserSerializer,
     UserListSerializer,
     UserCreateSerializer,
-    ProjectMembershipSerializer,
     ProjectTaskForceSerializer,
     TaskForceMembershipSerializer,
     AuditLogSerializer,
@@ -41,7 +45,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
     filterset_fields = ["is_active"]
     search_fields = ["code", "name"]
     ordering_fields = ["code", "name", "created_at"]
@@ -63,11 +67,11 @@ class RoleViewSet(viewsets.ModelViewSet):
     
     queryset = Role.objects.select_related("organization").all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
     filterset_fields = ["organization", "level", "is_system_role"]
     search_fields = ["code", "name"]
-    ordering_fields = ["level", "name"]
-    ordering = ["-level", "name"]
+    ordering_fields = ["level", "display_order", "name"]
+    ordering = ["-level", "display_order", "name"]
     
     def get_serializer_class(self):
         if self.action == "list":
@@ -89,7 +93,8 @@ class UserViewSet(viewsets.ModelViewSet):
     
     queryset = User.objects.select_related("organization", "role").all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    # Read for any authenticated user (needed for /me/ and pickers); writes Admin only
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
     filterset_fields = ["organization", "role", "is_active"]
     search_fields = ["username", "email", "first_name", "last_name"]
     ordering_fields = ["username", "email", "date_joined"]
@@ -108,6 +113,32 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
     
+    @action(detail=False, methods=["get", "patch"], url_path="me/preferences")
+    def preferences(self, request):
+        """
+        GET  → return current user's ui_preferences.
+        PATCH → deep-merge request.data into ui_preferences and persist.
+        """
+        user = request.user
+        if request.method == "GET":
+            return Response(user.ui_preferences or {})
+        # PATCH — shallow merge at top-level, deep merge at second level
+        incoming = request.data
+        if not isinstance(incoming, dict):
+            return Response(
+                {"error": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        prefs = dict(user.ui_preferences or {})
+        for key, value in incoming.items():
+            if isinstance(value, dict) and isinstance(prefs.get(key), dict):
+                prefs[key] = {**prefs[key], **value}
+            else:
+                prefs[key] = value
+        user.ui_preferences = prefs
+        user.save(update_fields=["ui_preferences"])
+        return Response(prefs)
+
     @action(detail=True, methods=["post"])
     def activate(self, request, pk=None):
         """Activate a user."""
@@ -125,22 +156,12 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({"status": "User deactivated."})
 
 
-class ProjectMembershipViewSet(viewsets.ModelViewSet):
-    """API endpoint for ProjectMembership CRUD operations."""
-    
-    queryset = ProjectMembership.objects.select_related("user", "role").all()
-    serializer_class = ProjectMembershipSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filterset_fields = ["user", "project_id", "role", "is_active"]
-    ordering = ["-created_at"]
-
-
 class ProjectTaskForceViewSet(viewsets.ModelViewSet):
     """API endpoint for ProjectTaskForce CRUD operations."""
     
     queryset = ProjectTaskForce.objects.select_related("leader").all()
     serializer_class = ProjectTaskForceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [TaskForcePermission]
     filterset_fields = ["project_id", "is_active"]
     search_fields = ["code", "name"]
     ordering = ["code"]
@@ -222,7 +243,7 @@ class TaskForceMembershipViewSet(viewsets.ModelViewSet):
         "user", "task_force"
     ).all()
     serializer_class = TaskForceMembershipSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [TaskForceMembershipPermission]
     filterset_fields = ["user", "task_force", "role"]
     ordering = ["-created_at"]
 
@@ -235,7 +256,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     
     queryset = AuditLog.objects.select_related("organization", "user").all()
     serializer_class = AuditLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdministrator]
     filterset_fields = ["organization", "project_id", "user", "action", "model_name"]
     search_fields = ["object_repr", "model_name"]
     ordering = ["-timestamp"]

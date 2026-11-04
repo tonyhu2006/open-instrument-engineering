@@ -14,7 +14,6 @@ from .models import (
     Organization,
     Role,
     User,
-    ProjectMembership,
     ProjectTaskForce,
     TaskForceMembership,
     AuditLog,
@@ -52,13 +51,6 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         (_("Organization"), {"fields": ("organization", "role")}),
     )
-
-
-@admin.register(ProjectMembership)
-class ProjectMembershipAdmin(admin.ModelAdmin):
-    list_display = ["user", "project_id", "role", "is_active"]
-    list_filter = ["is_active", "role"]
-    search_fields = ["user__username"]
 
 
 @admin.register(ProjectTaskForce)

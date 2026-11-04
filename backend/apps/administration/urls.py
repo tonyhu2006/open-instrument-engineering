@@ -13,7 +13,6 @@ from .views import (
     OrganizationViewSet,
     RoleViewSet,
     UserViewSet,
-    ProjectMembershipViewSet,
     ProjectTaskForceViewSet,
     TaskForceMembershipViewSet,
     AuditLogViewSet,
@@ -23,7 +22,6 @@ router = DefaultRouter()
 router.register(r"organizations", OrganizationViewSet, basename="organization")
 router.register(r"roles", RoleViewSet, basename="role")
 router.register(r"users", UserViewSet, basename="user")
-router.register(r"project-memberships", ProjectMembershipViewSet, basename="project-membership")
 router.register(r"task-forces", ProjectTaskForceViewSet, basename="task-force")
 router.register(r"task-force-memberships", TaskForceMembershipViewSet, basename="task-force-membership")
 router.register(r"audit-logs", AuditLogViewSet, basename="audit-log")

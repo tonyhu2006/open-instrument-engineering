@@ -168,7 +168,23 @@ CORS_ALLOWED_ORIGINS = os.getenv(
     "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
 ).split(",")
 
+# In DEBUG, allow any localhost / 127.0.0.1 port (covers the Vite dev server,
+# the Windsurf browser-preview proxy which uses a random port, etc.).
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
+]
+
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF trusted origins — required since Django 4.0 for any non-GET request
+# whose Origin/Referer host differs from the server. Wildcard ports are
+# supported (Django ≥4.0). Includes all local dev hosts and the Windsurf
+# browser-preview proxy (random port on 127.0.0.1 / localhost).
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost:*,http://127.0.0.1:*",
+).split(",")
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -178,6 +194,7 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
+        "apps.administration.permissions.IsProjectMemberOrPublicSchema",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_FILTER_BACKENDS": [
@@ -203,4 +220,49 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "AI-Driven Instrumentation Design Platform API",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+}
+
+# =============================================================================
+# Logging — capture full tracebacks to logs/django_errors.log so we can
+# diagnose 500s even when the runserver stdout is not visible (e.g. detached
+# background processes).
+# =============================================================================
+_LOG_DIR = BASE_DIR / "logs"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name} {process:d} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "error_file": {
+            "level": "ERROR",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(_LOG_DIR / "django_errors.log"),
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console", "error_file"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "django.server": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
 }

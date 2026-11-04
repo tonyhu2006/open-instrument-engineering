@@ -122,11 +122,18 @@ class Role(TimeStampedModel):
         default=False,
         help_text=_("System roles cannot be deleted"),
     )
+    display_order = models.IntegerField(
+        default=100,
+        help_text=_(
+            "Tie-breaker for ordering roles within the same level. "
+            "Lower values appear first."
+        ),
+    )
     
     class Meta:
         verbose_name = _("Role")
         verbose_name_plural = _("Roles")
-        ordering = ["-level", "name"]
+        ordering = ["-level", "display_order", "name"]
         constraints = [
             models.UniqueConstraint(
                 fields=["organization", "code"],
@@ -191,6 +198,14 @@ class User(AbstractUser):
         null=True,
         help_text=_("User avatar"),
     )
+    ui_preferences = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_(
+            "Persisted UI preferences (column widths, theme overrides, etc.). "
+            "Structure: { tableWidths: { <storageKey>: { <colKey>: <px> } }, ... }"
+        ),
+    )
     
     class Meta:
         verbose_name = _("User")
@@ -212,57 +227,12 @@ class User(AbstractUser):
         return action in permissions
 
 
-class ProjectMembership(TimeStampedModel):
-    """
-    ProjectMembership - Links users to projects with specific roles.
-    A user can have different roles in different projects.
-    Uses project_id (integer) to reference ProjectTenant without cross-schema FK.
-    """
-    
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="project_memberships",
-        help_text=_("User"),
-    )
-    project_id = models.IntegerField(
-        default=0,
-        help_text=_("ProjectTenant ID (references tenants.ProjectTenant)"),
-    )
-    role = models.ForeignKey(
-        Role,
-        on_delete=models.PROTECT,
-        related_name="project_memberships",
-        help_text=_("Role in this project"),
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text=_("Whether this membership is active"),
-    )
-    
-    class Meta:
-        verbose_name = _("Project Membership")
-        verbose_name_plural = _("Project Memberships")
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "project_id"],
-                name="unique_user_project_membership",
-            ),
-        ]
-    
-    def __str__(self):
-        return f"{self.user} - Project {self.project_id} ({self.role})"
-    
-    @property
-    def project(self):
-        """Get the ProjectTenant instance."""
-        from apps.tenants.models import ProjectTenant
-        return ProjectTenant.objects.filter(pk=self.project_id).first()
-
-
 # =============================================================================
 # Project Task Force
 # =============================================================================
+# NOTE: ProjectMembership was removed in 2026-04-27. Project-level role
+# assignment is now handled via ProjectTaskForce + TaskForceMembership.
+# Migration 0002_remove_projectmembership drops the table.
 
 class ProjectTaskForce(TimeStampedModel):
     """

@@ -12,7 +12,6 @@ from rest_framework import serializers
 from .models import (
     Organization,
     Role,
-    ProjectMembership,
     ProjectTaskForce,
     TaskForceMembership,
     AuditLog,
@@ -68,10 +67,17 @@ class RoleListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for Role list views."""
     
     level_display = serializers.CharField(source="get_level_display", read_only=True)
+    organization_name = serializers.CharField(
+        source="organization.name", read_only=True, default=None
+    )
     
     class Meta:
         model = Role
-        fields = ["id", "code", "name", "level", "level_display"]
+        fields = [
+            "id", "code", "name", "level", "level_display",
+            "organization", "organization_name",
+            "is_system_role", "display_order",
+        ]
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -81,6 +87,8 @@ class UserSerializer(serializers.ModelSerializer):
         source="organization.name", read_only=True
     )
     role_name = serializers.CharField(source="role.name", read_only=True)
+    role_code = serializers.CharField(source="role.code", read_only=True)
+    role_level = serializers.IntegerField(source="role.level", read_only=True)
     full_name = serializers.SerializerMethodField()
     
     class Meta:
@@ -88,6 +96,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             "id", "username", "email", "first_name", "last_name", "full_name",
             "organization", "organization_name", "role", "role_name",
+            "role_code", "role_level", "is_superuser", "is_staff",
             "phone", "department", "title", "language", "timezone",
             "avatar", "is_active", "date_joined", "last_login"
         ]
@@ -105,10 +114,18 @@ class UserListSerializer(serializers.ModelSerializer):
     
     full_name = serializers.SerializerMethodField()
     role_name = serializers.CharField(source="role.name", read_only=True)
+    role_code = serializers.CharField(source="role.code", read_only=True)
+    role_level = serializers.IntegerField(source="role.level", read_only=True)
+    organization_name = serializers.CharField(source="organization.name", read_only=True)
     
     class Meta:
         model = User
-        fields = ["id", "username", "email", "full_name", "role_name", "is_active"]
+        fields = [
+            "id", "username", "email", "full_name",
+            "organization", "organization_name",
+            "role", "role_name", "role_code", "role_level",
+            "is_superuser", "is_active",
+        ]
     
     def get_full_name(self, obj):
         return obj.get_full_name() or obj.username
@@ -141,21 +158,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
-
-
-class ProjectMembershipSerializer(serializers.ModelSerializer):
-    """Serializer for ProjectMembership model."""
-    
-    user_name = serializers.CharField(source="user.username", read_only=True)
-    role_name = serializers.CharField(source="role.name", read_only=True)
-    
-    class Meta:
-        model = ProjectMembership
-        fields = [
-            "id", "user", "user_name", "project_id",
-            "role", "role_name", "is_active", "created_at", "updated_at"
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 # =============================================================================
