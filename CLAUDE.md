@@ -78,7 +78,7 @@ API base path is `/api` and is proxied to `http://localhost:8000` by Vite's dev 
 
 Key directories: `components/{auth,hierarchy,layout,table,ui}`, `pages/`, `contexts/`, `stores/`.
 
-**Heads up — missing `src/lib/`**: a dozen files import `@/lib/api` (the API client) and `@/lib/utils` (the Shadcn `cn` helper), but `frontend/src/lib/` does not exist on this branch. Frontend builds will fail until those modules are created. If you're touching the frontend, expect to either create these files or be working in a partial state.
+**Heads up — `src/lib/` and `.gitignore`**: `frontend/src/lib/` holds `api.ts` (the API client) and `utils.ts` (the Shadcn `cn` helper). The root `.gitignore` has a Python `lib/` rule that used to silently exclude this directory; it is now re-included via `!frontend/src/lib/` — keep that exception, and run `git check-ignore -v <path>` before adding frontend files under any other `lib/` directory.
 
 ## Conventions worth knowing
 

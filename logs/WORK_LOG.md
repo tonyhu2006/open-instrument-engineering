@@ -449,3 +449,18 @@ ProjectMembership 自项目改用 `ProjectTaskForce + TaskForceMembership` 体�
 
 ### 验证
 - 按 AGENTS.md 新命令原样执行（backend/ 下）：19 passed ✅
+
+---
+
+## 2026-11-04（后续 3）— AGENTS.md / CLAUDE.md 过时条目更新
+
+**触发指令**：请一起更新（frontend/src/lib 条目与 V4 命令）。
+
+### 操作
+- 修改：`AGENTS.md` V4 改为 `uv run python manage.py spectacular --validate --fail-on-warn > /dev/null`（backend/ 下，0 error 且 0 warning 才算通过）。
+- 修改：`AGENTS.md`「已知残缺与坑」中 `frontend/src/lib/` 缺失条目改为现状说明：已纳入版本控制，禁止删除 `.gitignore` 中 `!frontend/src/lib/` 例外，新增 `lib/` 下前端文件前用 `git check-ignore -v` 确认。
+- 修改：`CLAUDE.md` 对应 "missing src/lib" 提示同步更新。GitNexus 自动管理块未改动。
+
+### 验证
+- 新 V4 命令原样执行：exit 0 ✅
+- `git check-ignore -v frontend/src/lib/api.ts` 未命中；`git ls-files frontend/src/lib` 含 api.ts / utils.ts ✅
