@@ -2,7 +2,7 @@
 
 适用于本仓库内运行的所有编码 agent。**当前唯一实现 agent 为 Claude Code（经 ACP 接入 Devin Desktop）**；Devin Review 仅承担 PR 初筛；Devin Local 休眠不参与实现。本契约对未来接入的任何 agent 同样适用，不因 agent 更换而修改。
 本文件是行为约束；事实来源是唯一 spec **`docs/SPECIFICATION.md`**（含架构与数据模型、15 个模块功能需求、§4 全局契约、§5.4 API 端点权威清单、§4.12.1 决策记录 D1–D5、第七部分 WP 分解与交付协议；本文引用的 §x.x 章节号均指此文件）。实现与 spec 冲突时，停下提问，不得擅自变更 spec 语义；发现 spec 内部矛盾记录到 `docs/OPEN_QUESTIONS.md`。
-**注意**：文末 `<!-- gitnexus:start -->` 到 `<!-- gitnexus:end -->` 之间是 GitNexus 自动管理块，**任何 agent 和人都不得手工编辑该块**；本节内容一律写在标记之外。
+**注意**：文末由 `gitnexus:start` / `gitnexus:end` 两个 HTML 注释标记包围的区域是 GitNexus 自动管理块，**任何 agent 和人都不得手工编辑该块**；本节内容一律写在标记之外。（此处刻意不写出完整注释标记原文，否则 `gitnexus analyze` 会误把本行当作块边界并将自动块插入正文。）
 
 ## 项目一句话
 
@@ -70,7 +70,7 @@ uv run pytest tests/test_tenant_isolation.py -x
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Open Instrument** (636 symbols, 1325 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Open Instrument** (860 symbols, 1653 relationships, 41 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

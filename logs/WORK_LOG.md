@@ -464,3 +464,19 @@ ProjectMembership 自项目改用 `ProjectTaskForce + TaskForceMembership` 体�
 ### 验证
 - 新 V4 命令原样执行：exit 0 ✅
 - `git check-ignore -v frontend/src/lib/api.ts` 未命中；`git ls-files frontend/src/lib` 含 api.ts / utils.ts ✅
+
+---
+
+## 2026-11-04（后续 4）— GitNexus 索引更新 + AGENTS.md 标记误匹配修复
+
+**触发指令**：跑一次 `npx gitnexus analyze` 更新。
+
+### 操作
+- 执行：`npx gitnexus analyze --embeddings`（原索引含 519 条 embeddings，故保留）。
+- **发现问题**：AGENTS.md 第 5 行说明文字以行内代码形式写出了完整的 GitNexus 起止注释标记，analyze 将其误判为块边界，把 100 行自动块插入正文第 5 行，文末真实块反而未更新。
+- 修复：`git checkout -- AGENTS.md` 撤销 analyze 的误写入；改写第 5 行说明（语义不变，不再出现完整标记原文，并注明原因）；以 `--force --embeddings` 重新索引，确认仅文末自动块统计数字被更新。
+- 还原：analyze 改写的 6 个 `.claude/skills/gitnexus/*/SKILL.md` 仅为行尾差异，已 `git checkout` 还原。
+
+### 结果
+- 索引对应 HEAD `b5be71d`：860 nodes / 1,653 edges / 69 clusters / 41 flows / 578 embeddings ✅
+- AGENTS.md / CLAUDE.md 各仅 1 行统计更新（AGENTS.md 另含第 5 行说明改写）✅
