@@ -31,7 +31,7 @@ class ProjectTenantSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "schema_name", "created_at", "updated_at"]
 
-    def get_organization_name(self, obj):
+    def get_organization_name(self, obj) -> str | None:
         from apps.administration.models import Organization
 
         org = Organization.objects.filter(pk=obj.organization_id).first()

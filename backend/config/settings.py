@@ -221,6 +221,11 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "AI-Driven Instrumentation Design Platform API",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Disambiguate identically named `status` choice sets across models.
+    "ENUM_NAME_OVERRIDES": {
+        "ProjectStatusEnum": "apps.tenants.models.ProjectTenant.Status",
+        "TagStatusEnum": "apps.core_engineering.models.Tag.Status",
+    },
 }
 
 # =============================================================================

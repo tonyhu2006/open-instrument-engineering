@@ -145,7 +145,7 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "date_joined", "last_login"]
         extra_kwargs = {"password": {"write_only": True}}
 
-    def get_full_name(self, obj):
+    def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
 
 
@@ -177,7 +177,7 @@ class UserListSerializer(serializers.ModelSerializer):
             "is_active",
         ]
 
-    def get_full_name(self, obj):
+    def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
 
 
@@ -248,7 +248,7 @@ class ProjectTaskForceSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def get_member_count(self, obj):
+    def get_member_count(self, obj) -> int:
         return obj.memberships.count()
 
 
