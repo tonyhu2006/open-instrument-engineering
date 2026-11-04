@@ -3,27 +3,36 @@ Core Engineering Views - DRF ViewSets for all models
 """
 
 from django.db.models import Q
-from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
-from .models import Client, Site, Plant, PlantHierarchy, Loop, InstrumentType, Tag, NamingConvention
+from .models import (
+    Client,
+    InstrumentType,
+    Loop,
+    NamingConvention,
+    Plant,
+    PlantHierarchy,
+    Site,
+    Tag,
+)
 from .serializers import (
     ClientSerializer,
-    SiteSerializer,
-    PlantSerializer,
+    InstrumentTypeListSerializer,
+    InstrumentTypeSerializer,
+    LoopSerializer,
     NamingConventionSerializer,
     PlantHierarchySerializer,
     PlantHierarchyTreeSerializer,
-    LoopSerializer,
-    InstrumentTypeSerializer,
-    InstrumentTypeListSerializer,
-    TagSerializer,
-    TagListSerializer,
+    PlantSerializer,
+    SiteSerializer,
     TagBulkUpdateSerializer,
+    TagListSerializer,
+    TagSerializer,
 )
 
 
@@ -44,7 +53,11 @@ class PlantHierarchyViewSet(viewsets.ModelViewSet):
     queryset = PlantHierarchy.objects.all()
     serializer_class = PlantHierarchySerializer
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["node_type", "is_active", "parent"]
     search_fields = ["name", "code", "description"]
     ordering_fields = ["code", "name", "created_at"]
@@ -104,7 +117,11 @@ class LoopViewSet(viewsets.ModelViewSet):
     queryset = Loop.objects.select_related("unit").all()
     serializer_class = LoopSerializer
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["function", "is_active", "unit"]
     search_fields = ["loop_tag", "description"]
     ordering_fields = ["loop_tag", "function", "created_at"]
@@ -139,7 +156,11 @@ class InstrumentTypeViewSet(viewsets.ModelViewSet):
 
     queryset = InstrumentType.objects.all()
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["category", "is_active"]
     search_fields = ["name", "code", "description"]
     ordering_fields = ["code", "name", "category", "created_at"]
@@ -154,14 +175,22 @@ class InstrumentTypeViewSet(viewsets.ModelViewSet):
         summary="Validate spec data against schema",
         description="Validates provided spec_data against this instrument type's schema_template",
         request={"application/json": {"type": "object"}},
-        responses={200: {"type": "object", "properties": {"valid": {"type": "boolean"}, "errors": {"type": "array"}}}},
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "valid": {"type": "boolean"},
+                    "errors": {"type": "array"},
+                },
+            }
+        },
     )
     @action(detail=True, methods=["post"])
     def validate_spec(self, request, pk=None):
         """Validate spec_data against the instrument type's schema."""
         instrument_type = self.get_object()
         spec_data = request.data
-        
+
         is_valid, errors = instrument_type.validate_spec_data(spec_data)
         return Response({"valid": is_valid, "errors": errors})
 
@@ -182,7 +211,11 @@ class TagViewSet(viewsets.ModelViewSet):
 
     queryset = Tag.objects.select_related("unit", "loop", "instrument_type").all()
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["status", "unit", "loop", "instrument_type"]
     search_fields = ["tag_number", "service", "description"]
     ordering_fields = ["tag_number", "status", "revision", "created_at", "updated_at"]
@@ -197,28 +230,30 @@ class TagViewSet(viewsets.ModelViewSet):
         summary="Bulk update tags",
         description="Update multiple tags at once (status, loop assignment)",
         request=TagBulkUpdateSerializer,
-        responses={200: {"type": "object", "properties": {"updated": {"type": "integer"}}}},
+        responses={
+            200: {"type": "object", "properties": {"updated": {"type": "integer"}}}
+        },
     )
     @action(detail=False, methods=["post"])
     def bulk_update(self, request):
         """Bulk update multiple tags."""
         serializer = TagBulkUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         ids = serializer.validated_data["ids"]
         update_fields = {}
-        
+
         if "status" in serializer.validated_data:
             update_fields["status"] = serializer.validated_data["status"]
         if "loop" in serializer.validated_data:
             update_fields["loop"] = serializer.validated_data["loop"]
-        
+
         if not update_fields:
             return Response(
                 {"error": "No fields to update"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         updated = Tag.objects.filter(id__in=ids).update(**update_fields)
         return Response({"updated": updated})
 
@@ -226,7 +261,9 @@ class TagViewSet(viewsets.ModelViewSet):
         summary="Search tags",
         description="Advanced search across multiple fields",
         parameters=[
-            OpenApiParameter(name="q", description="Search query", required=True, type=str),
+            OpenApiParameter(
+                name="q", description="Search query", required=True, type=str
+            ),
         ],
     )
     @action(detail=False, methods=["get"])
@@ -235,14 +272,14 @@ class TagViewSet(viewsets.ModelViewSet):
         query = request.query_params.get("q", "")
         if not query:
             return Response({"error": "Query parameter 'q' is required"}, status=400)
-        
+
         tags = Tag.objects.filter(
             Q(tag_number__icontains=query)
             | Q(service__icontains=query)
             | Q(description__icontains=query)
             | Q(loop__loop_tag__icontains=query)
         ).select_related("unit", "loop", "instrument_type")[:50]
-        
+
         serializer = TagListSerializer(tags, many=True)
         return Response(serializer.data)
 
@@ -250,7 +287,9 @@ class TagViewSet(viewsets.ModelViewSet):
         summary="Get tags by unit",
         description="Returns all tags in a specific unit",
         parameters=[
-            OpenApiParameter(name="unit_id", description="Unit ID", required=True, type=int),
+            OpenApiParameter(
+                name="unit_id", description="Unit ID", required=True, type=int
+            ),
         ],
     )
     @action(detail=False, methods=["get"])
@@ -262,7 +301,7 @@ class TagViewSet(viewsets.ModelViewSet):
                 {"error": "unit_id parameter is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         tags = Tag.objects.filter(unit_id=unit_id).select_related(
             "unit", "loop", "instrument_type"
         )
@@ -274,9 +313,10 @@ class TagViewSet(viewsets.ModelViewSet):
 # Client, Site, Plant ViewSets (Tenant-specific)
 # =============================================================================
 
+
 class ClientViewSet(viewsets.ModelViewSet):
     """ViewSet for Client model (tenant-specific data)."""
-    
+
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
@@ -287,7 +327,7 @@ class ClientViewSet(viewsets.ModelViewSet):
 
 class SiteViewSet(viewsets.ModelViewSet):
     """ViewSet for Site model (tenant-specific data)."""
-    
+
     queryset = Site.objects.select_related("client").all()
     serializer_class = SiteSerializer
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
@@ -299,7 +339,7 @@ class SiteViewSet(viewsets.ModelViewSet):
 
 class PlantViewSet(viewsets.ModelViewSet):
     """ViewSet for Plant model (tenant-specific data)."""
-    
+
     queryset = Plant.objects.select_related("site").all()
     serializer_class = PlantSerializer
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
@@ -311,7 +351,7 @@ class PlantViewSet(viewsets.ModelViewSet):
 
 class NamingConventionViewSet(viewsets.ModelViewSet):
     """ViewSet for NamingConvention model (tenant-specific data)."""
-    
+
     queryset = NamingConvention.objects.all()
     serializer_class = NamingConventionSerializer
     permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
@@ -319,7 +359,7 @@ class NamingConventionViewSet(viewsets.ModelViewSet):
     filterset_fields = ["hierarchy_format", "is_default", "is_active"]
     search_fields = ["name"]
     ordering = ["-is_default", "name"]
-    
+
     @action(detail=True, methods=["post"])
     def set_default(self, request, pk=None):
         """Set this naming convention as the default."""

@@ -14,9 +14,8 @@ from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 
 from apps.administration.models import Organization
+from apps.core_engineering.models import Client, Plant, Site
 from apps.tenants.models import ProjectTenant
-from apps.core_engineering.models import Client, Site, Plant
-
 
 # Distinctive sample payloads so it is obvious in the UI that the two
 # projects' data are physically isolated (different clients, sites, plants).
@@ -40,8 +39,18 @@ DEFAULT_PAYLOAD = {
         "timezone": "Asia/Shanghai",
     },
     "plants": [
-        {"code": "REGAS", "name": "Regasification Unit", "description": "LNG regas unit", "capacity": "6.5 MTPA"},
-        {"code": "STORAGE", "name": "LNG Storage Tanks", "description": "4x160,000m³ tanks", "capacity": "640,000 m³"},
+        {
+            "code": "REGAS",
+            "name": "Regasification Unit",
+            "description": "LNG regas unit",
+            "capacity": "6.5 MTPA",
+        },
+        {
+            "code": "STORAGE",
+            "name": "LNG Storage Tanks",
+            "description": "4x160,000m³ tanks",
+            "capacity": "640,000 m³",
+        },
     ],
 }
 
@@ -66,7 +75,9 @@ class Command(BaseCommand):
             try:
                 org = Organization.objects.get(code=org_code)
             except Organization.DoesNotExist:
-                self.stderr.write(self.style.ERROR(f"Organization '{org_code}' not found."))
+                self.stderr.write(
+                    self.style.ERROR(f"Organization '{org_code}' not found.")
+                )
                 return
         else:
             org = Organization.objects.first()
@@ -110,14 +121,20 @@ class Command(BaseCommand):
 
         # Switch into the new schema and seed tenant-local data
         connection.set_tenant(tenant)
-        self.stdout.write(self.style.MIGRATE_HEADING(f"\nSeeding data into schema '{tenant.schema_name}'..."))
+        self.stdout.write(
+            self.style.MIGRATE_HEADING(
+                f"\nSeeding data into schema '{tenant.schema_name}'..."
+            )
+        )
 
         client_data = DEFAULT_PAYLOAD["client"]
         client, c_created = Client.objects.get_or_create(
             code=client_data["code"],
             defaults={k: v for k, v in client_data.items() if k != "code"},
         )
-        self.stdout.write(("  + " if c_created else "  = ") + f"Client {client.code} - {client.name}")
+        self.stdout.write(
+            ("  + " if c_created else "  = ") + f"Client {client.code} - {client.name}"
+        )
 
         site_data = DEFAULT_PAYLOAD["site"]
         site, s_created = Site.objects.get_or_create(
@@ -125,7 +142,9 @@ class Command(BaseCommand):
             code=site_data["code"],
             defaults={k: v for k, v in site_data.items() if k != "code"},
         )
-        self.stdout.write(("  + " if s_created else "  = ") + f"Site   {site.code} - {site.name}")
+        self.stdout.write(
+            ("  + " if s_created else "  = ") + f"Site   {site.code} - {site.name}"
+        )
 
         for plant_data in DEFAULT_PAYLOAD["plants"]:
             plant, p_created = Plant.objects.get_or_create(
@@ -133,15 +152,18 @@ class Command(BaseCommand):
                 code=plant_data["code"],
                 defaults={k: v for k, v in plant_data.items() if k != "code"},
             )
-            self.stdout.write(("  + " if p_created else "  = ") + f"Plant  {plant.code} - {plant.name}")
+            self.stdout.write(
+                ("  + " if p_created else "  = ")
+                + f"Plant  {plant.code} - {plant.name}"
+            )
 
         # Restore public schema
         connection.set_schema_to_public()
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\nDone. Two tenants now exist; their data lives in physically "
-                f"separate PostgreSQL schemas. Switch projects via the UI's project "
-                f"selector to verify isolation."
+                "\nDone. Two tenants now exist; their data lives in physically "
+                "separate PostgreSQL schemas. Switch projects via the UI's project "
+                "selector to verify isolation."
             )
         )

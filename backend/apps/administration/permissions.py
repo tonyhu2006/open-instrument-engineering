@@ -20,7 +20,7 @@ Role hierarchy (level):
 """
 
 from django_tenants.utils import get_public_schema_name
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from .models import Role
 
@@ -50,6 +50,7 @@ class IsProjectMemberOrPublicSchema(BasePermission):
             return False
         # Lazy import avoids a circular dependency (access → models → …).
         from .access import user_accessible_project_ids
+
         accessible = user_accessible_project_ids(user)
         if accessible is None:
             return True  # admin bypass

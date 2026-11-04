@@ -5,7 +5,7 @@ Core Engineering Admin Configuration
 from django.contrib import admin
 from mptt.admin import DraggableMPTTAdmin
 
-from .models import PlantHierarchy, Loop, InstrumentType, Tag
+from .models import InstrumentType, Loop, PlantHierarchy, Tag
 
 
 @admin.register(PlantHierarchy)

@@ -21,10 +21,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 from django.db import connection  # noqa: E402
-from django_tenants.utils import get_public_schema_name  # noqa: E402
 
-from apps.tenants.models import ProjectTenant  # noqa: E402
 from apps.administration.models import Organization  # noqa: E402
+from apps.tenants.models import ProjectTenant  # noqa: E402
 
 
 def main() -> int:

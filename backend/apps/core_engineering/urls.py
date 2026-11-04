@@ -2,17 +2,17 @@
 Core Engineering URL Configuration
 """
 
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
     ClientViewSet,
-    SiteViewSet,
-    PlantViewSet,
+    InstrumentTypeViewSet,
+    LoopViewSet,
     NamingConventionViewSet,
     PlantHierarchyViewSet,
-    LoopViewSet,
-    InstrumentTypeViewSet,
+    PlantViewSet,
+    SiteViewSet,
     TagViewSet,
 )
 
@@ -23,7 +23,9 @@ router = DefaultRouter()
 router.register(r"clients", ClientViewSet, basename="client")
 router.register(r"sites", SiteViewSet, basename="site")
 router.register(r"plants", PlantViewSet, basename="plant")
-router.register(r"naming-conventions", NamingConventionViewSet, basename="naming-convention")
+router.register(
+    r"naming-conventions", NamingConventionViewSet, basename="naming-convention"
+)
 # Engineering models
 router.register(r"hierarchy", PlantHierarchyViewSet, basename="hierarchy")
 router.register(r"loops", LoopViewSet, basename="loop")

@@ -11,12 +11,12 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
-    Organization,
-    Role,
-    User,
-    ProjectTaskForce,
-    TaskForceMembership,
     AuditLog,
+    Organization,
+    ProjectTaskForce,
+    Role,
+    TaskForceMembership,
+    User,
 )
 
 
@@ -42,12 +42,24 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ["is_active", "is_staff", "organization", "role"]
     search_fields = ["username", "email", "first_name", "last_name"]
     ordering = ["username"]
-    
+
     fieldsets = BaseUserAdmin.fieldsets + (
         (_("Organization"), {"fields": ("organization", "role")}),
-        (_("Profile"), {"fields": ("phone", "department", "title", "language", "timezone", "avatar")}),
+        (
+            _("Profile"),
+            {
+                "fields": (
+                    "phone",
+                    "department",
+                    "title",
+                    "language",
+                    "timezone",
+                    "avatar",
+                )
+            },
+        ),
     )
-    
+
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         (_("Organization"), {"fields": ("organization", "role")}),
     )
@@ -73,7 +85,16 @@ class AuditLogAdmin(admin.ModelAdmin):
     search_fields = ["object_repr", "user__username"]
     ordering = ["-timestamp"]
     readonly_fields = [
-        "organization", "project_id", "user", "action", "model_name",
-        "object_id", "object_repr", "old_values", "new_values",
-        "ip_address", "user_agent", "timestamp"
+        "organization",
+        "project_id",
+        "user",
+        "action",
+        "model_name",
+        "object_id",
+        "object_repr",
+        "old_values",
+        "new_values",
+        "ip_address",
+        "user_agent",
+        "timestamp",
     ]

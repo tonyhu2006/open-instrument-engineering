@@ -34,7 +34,6 @@ from django.db import transaction
 
 from apps.administration.models import Organization, Role
 
-
 CRUD = ["create", "read", "update", "delete"]
 R = ["read"]
 CR = ["create", "read"]
@@ -197,7 +196,9 @@ class Command(BaseCommand):
         if org_code:
             orgs = Organization.objects.filter(code=org_code)
             if not orgs.exists():
-                self.stderr.write(self.style.ERROR(f"Organization '{org_code}' not found."))
+                self.stderr.write(
+                    self.style.ERROR(f"Organization '{org_code}' not found.")
+                )
                 return
         else:
             orgs = Organization.objects.all()
@@ -209,7 +210,9 @@ class Command(BaseCommand):
                     name="Demo Engineering Company",
                     description="Default organization (auto-created by seed_rbac)",
                 )
-                self.stdout.write(self.style.SUCCESS(f"Created default organization: {org}"))
+                self.stdout.write(
+                    self.style.SUCCESS(f"Created default organization: {org}")
+                )
                 orgs = Organization.objects.filter(pk=org.pk)
             else:
                 self.stderr.write(
@@ -246,7 +249,9 @@ class Command(BaseCommand):
                 if created:
                     total_created += 1
                     self.stdout.write(
-                        self.style.SUCCESS(f"  + {code:10s} L{role.level} — {role.name}")
+                        self.style.SUCCESS(
+                            f"  + {code:10s} L{role.level} — {role.name}"
+                        )
                     )
                 else:
                     # Refresh permission matrix and metadata to keep DB in sync with code
@@ -259,7 +264,9 @@ class Command(BaseCommand):
                         role.save()
                         total_updated += 1
                         self.stdout.write(
-                            self.style.WARNING(f"  ~ {code:10s} L{role.level} — updated")
+                            self.style.WARNING(
+                                f"  ~ {code:10s} L{role.level} — updated"
+                            )
                         )
                     else:
                         self.stdout.write(f"  = {code:10s} L{role.level} — unchanged")

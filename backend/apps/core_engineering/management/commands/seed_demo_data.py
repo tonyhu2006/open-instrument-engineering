@@ -4,7 +4,7 @@ Management command to seed demo data for testing.
 
 from django.core.management.base import BaseCommand
 
-from apps.core_engineering.models import PlantHierarchy, Loop, InstrumentType, Tag
+from apps.core_engineering.models import InstrumentType, Loop, PlantHierarchy, Tag
 
 
 class Command(BaseCommand):
@@ -75,7 +75,10 @@ class Command(BaseCommand):
                 "range_min": {"type": "number", "description": "Minimum range"},
                 "range_max": {"type": "number", "description": "Maximum range"},
                 "range_unit": {"type": "string", "description": "Engineering unit"},
-                "output_signal": {"type": "string", "enum": ["4-20mA", "HART", "Foundation Fieldbus"]},
+                "output_signal": {
+                    "type": "string",
+                    "enum": ["4-20mA", "HART", "Foundation Fieldbus"],
+                },
                 "process_connection": {"type": "string"},
                 "material": {"type": "string"},
             },
@@ -105,7 +108,10 @@ class Command(BaseCommand):
                 "range_min": {"type": "number"},
                 "range_max": {"type": "number"},
                 "range_unit": {"type": "string", "enum": ["°C", "°F", "K"]},
-                "sensor_type": {"type": "string", "enum": ["RTD", "Thermocouple", "Thermistor"]},
+                "sensor_type": {
+                    "type": "string",
+                    "enum": ["RTD", "Thermocouple", "Thermistor"],
+                },
                 "output_signal": {"type": "string"},
             },
             "required": ["range_min", "range_max", "range_unit", "sensor_type"],
@@ -136,7 +142,10 @@ class Command(BaseCommand):
                 "body_size": {"type": "string"},
                 "body_material": {"type": "string"},
                 "trim_material": {"type": "string"},
-                "actuator_type": {"type": "string", "enum": ["Pneumatic", "Electric", "Hydraulic"]},
+                "actuator_type": {
+                    "type": "string",
+                    "enum": ["Pneumatic", "Electric", "Hydraulic"],
+                },
                 "fail_position": {"type": "string", "enum": ["FC", "FO", "FL"]},
             },
             "required": ["cv", "body_size", "actuator_type", "fail_position"],
@@ -151,7 +160,7 @@ class Command(BaseCommand):
                 "schema_template": control_valve_schema,
                 "default_spec_data": {
                     "cv": 10,
-                    "body_size": "2\"",
+                    "body_size": '2"',
                     "actuator_type": "Pneumatic",
                     "fail_position": "FC",
                 },
@@ -221,7 +230,7 @@ class Command(BaseCommand):
                     "range_max": 150,
                     "range_unit": "m³/h",
                     "output_signal": "4-20mA",
-                    "process_connection": "2\" 150# RF",
+                    "process_connection": '2" 150# RF',
                     "material": "316SS",
                 },
             },
@@ -237,7 +246,7 @@ class Command(BaseCommand):
                 "service": "Reactor feed flow control valve",
                 "spec_data": {
                     "cv": 25,
-                    "body_size": "3\"",
+                    "body_size": '3"',
                     "body_material": "WCB",
                     "trim_material": "316SS",
                     "actuator_type": "Pneumatic",

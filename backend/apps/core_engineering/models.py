@@ -7,25 +7,25 @@ Data integrity is critical for engineering applications.
 All models in this file are TENANT-SPECIFIC - they are stored in project schemas.
 """
 
+import jsonschema
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from mptt.models import MPTTModel, TreeForeignKey
-import jsonschema
 
 from apps.core.models import TimeStampedModel
-
 
 # =============================================================================
 # Project Hierarchy Models (Tenant-specific)
 # =============================================================================
+
 
 class Client(TimeStampedModel):
     """
     Client - Owner/customer of the project.
     Stored in tenant schema - no project FK needed (implicit from schema).
     """
-    
+
     name = models.CharField(
         max_length=300,
         help_text=_("Client/owner name"),
@@ -53,12 +53,12 @@ class Client(TimeStampedModel):
         blank=True,
         help_text=_("Client address"),
     )
-    
+
     class Meta:
         verbose_name = _("Client")
         verbose_name_plural = _("Clients")
         ordering = ["name"]
-    
+
     def __str__(self):
         return f"{self.code} - {self.name}"
 
@@ -68,7 +68,7 @@ class Site(TimeStampedModel):
     Site - Physical location/factory site.
     Hierarchy: Client → Site
     """
-    
+
     client = models.ForeignKey(
         Client,
         on_delete=models.CASCADE,
@@ -97,7 +97,7 @@ class Site(TimeStampedModel):
         default="UTC",
         help_text=_("Site timezone (e.g., 'Asia/Shanghai')"),
     )
-    
+
     class Meta:
         verbose_name = _("Site")
         verbose_name_plural = _("Sites")
@@ -108,7 +108,7 @@ class Site(TimeStampedModel):
                 name="unique_site_code_per_client",
             ),
         ]
-    
+
     def __str__(self):
         return f"{self.code} - {self.name}"
 
@@ -118,7 +118,7 @@ class Plant(TimeStampedModel):
     Plant - Factory/process unit within a site.
     Hierarchy: Client → Site → Plant
     """
-    
+
     site = models.ForeignKey(
         Site,
         on_delete=models.CASCADE,
@@ -146,7 +146,7 @@ class Plant(TimeStampedModel):
         default=True,
         help_text=_("Whether this plant is active"),
     )
-    
+
     class Meta:
         verbose_name = _("Plant")
         verbose_name_plural = _("Plants")
@@ -157,7 +157,7 @@ class Plant(TimeStampedModel):
                 name="unique_plant_code_per_site",
             ),
         ]
-    
+
     def __str__(self):
         return f"{self.code} - {self.name}"
 
@@ -165,6 +165,7 @@ class Plant(TimeStampedModel):
 # =============================================================================
 # Plant Internal Hierarchy (MPTT)
 # =============================================================================
+
 
 class PlantHierarchy(MPTTModel, TimeStampedModel):
     """
@@ -227,7 +228,7 @@ class PlantHierarchy(MPTTModel, TimeStampedModel):
     def clean(self):
         """Validate hierarchy rules."""
         super().clean()
-        
+
         if self.parent:
             parent_type = self.parent.node_type
             valid_children = {
@@ -235,7 +236,7 @@ class PlantHierarchy(MPTTModel, TimeStampedModel):
                 self.NodeType.AREA: [self.NodeType.UNIT],
                 self.NodeType.UNIT: [],
             }
-            
+
             if self.node_type not in valid_children.get(parent_type, []):
                 raise ValidationError(
                     {
@@ -399,7 +400,7 @@ class InstrumentType(TimeStampedModel):
         """
         if not self.schema_template:
             return True, []
-        
+
         try:
             jsonschema.validate(instance=spec_data, schema=self.schema_template)
             return True, []
@@ -522,11 +523,11 @@ class Tag(TimeStampedModel):
         # Increment revision on update (not on create)
         if self.pk:
             self.revision += 1
-        
+
         # Apply default spec_data from instrument_type if empty
         if not self.spec_data and self.instrument_type:
             self.spec_data = self.instrument_type.default_spec_data.copy()
-        
+
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -540,12 +541,13 @@ class Tag(TimeStampedModel):
 # Naming Conventions (Tenant-specific)
 # =============================================================================
 
+
 class NamingConvention(TimeStampedModel):
     """
     NamingConvention - Defines tag naming rules for a project.
     Stored in tenant schema - no project FK needed (implicit from schema).
     """
-    
+
     class HierarchyFormat(models.TextChoices):
         FULL = "FULL", _("Site-Plant-Area-Unit-Function-Sequence")
         NO_SITE = "NO_SITE", _("Plant-Area-Unit-Function-Sequence")
@@ -553,7 +555,7 @@ class NamingConvention(TimeStampedModel):
         UNIT_ONLY = "UNIT_ONLY", _("Unit-Function-Sequence")
         FLEXIBLE_PREFIX = "FLEXIBLE_PREFIX", _("XXXX-Unit-Function-Sequence")
         CUSTOM = "CUSTOM", _("Custom Regex")
-    
+
     name = models.CharField(
         max_length=200,
         help_text=_("Convention name (e.g., 'ISA-5.1 Standard')"),
@@ -571,8 +573,7 @@ class NamingConvention(TimeStampedModel):
     regex_pattern = models.CharField(
         max_length=500,
         help_text=_(
-            "Regex pattern for validation. "
-            "Example: ^[A-Z]{2,3}-\\d{3}[A-Z]?$"
+            "Regex pattern for validation. " "Example: ^[A-Z]{2,3}-\\d{3}[A-Z]?$"
         ),
     )
     segment_definitions = models.JSONField(
@@ -596,31 +597,35 @@ class NamingConvention(TimeStampedModel):
         default=True,
         help_text=_("Whether this convention is active"),
     )
-    
+
     class Meta:
         verbose_name = _("Naming Convention")
         verbose_name_plural = _("Naming Conventions")
         ordering = ["-is_default", "name"]
-    
+
     def __str__(self):
         return self.name
-    
+
     def validate_tag_number(self, tag_number: str) -> tuple[bool, str]:
         """Validate a tag number against this convention."""
         import re
+
         try:
             pattern = re.compile(self.regex_pattern)
             if pattern.match(tag_number):
                 return True, ""
             else:
-                return False, f"Tag number '{tag_number}' does not match pattern: {self.regex_pattern}"
+                return (
+                    False,
+                    f"Tag number '{tag_number}' does not match pattern: {self.regex_pattern}",
+                )
         except re.error as e:
             return False, f"Invalid regex pattern: {e}"
-    
+
     def save(self, *args, **kwargs):
         # Ensure only one default convention
         if self.is_default:
-            NamingConvention.objects.filter(
-                is_default=True
-            ).exclude(pk=self.pk).update(is_default=False)
+            NamingConvention.objects.filter(is_default=True).exclude(pk=self.pk).update(
+                is_default=False
+            )
         super().save(*args, **kwargs)

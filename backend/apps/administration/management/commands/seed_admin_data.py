@@ -3,17 +3,17 @@ Management command to seed administration demo data.
 Creates demo organization, project hierarchy, roles, and users.
 """
 
-from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
 
 from apps.administration.models import (
-    Organization,
-    Project,
     Client,
-    Site,
-    Plant,
-    Role,
     NamingConvention,
+    Organization,
+    Plant,
+    Project,
+    Role,
+    Site,
 )
 
 User = get_user_model()
@@ -24,20 +24,20 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write("Seeding administration demo data...")
-        
+
         # Create Organization
         org, created = Organization.objects.get_or_create(
             code="DEMO",
             defaults={
                 "name": "Demo Engineering Company",
                 "description": "Demo organization for testing",
-            }
+            },
         )
         if created:
             self.stdout.write(self.style.SUCCESS(f"Created organization: {org}"))
         else:
             self.stdout.write(f"Organization exists: {org}")
-        
+
         # Create Roles
         roles_data = [
             {
@@ -97,18 +97,16 @@ class Command(BaseCommand):
                 "is_system_role": True,
             },
         ]
-        
+
         roles = {}
         for role_data in roles_data:
             role, created = Role.objects.get_or_create(
-                organization=org,
-                code=role_data["code"],
-                defaults=role_data
+                organization=org, code=role_data["code"], defaults=role_data
             )
             roles[role_data["code"]] = role
             if created:
                 self.stdout.write(self.style.SUCCESS(f"Created role: {role}"))
-        
+
         # Create Admin User
         admin_user, created = User.objects.get_or_create(
             username="admin",
@@ -120,13 +118,13 @@ class Command(BaseCommand):
                 "role": roles["ADMIN"],
                 "is_staff": True,
                 "is_superuser": True,
-            }
+            },
         )
         if created:
             admin_user.set_password("admin123")
             admin_user.save()
             self.stdout.write(self.style.SUCCESS(f"Created admin user: {admin_user}"))
-        
+
         # Create Demo Users
         demo_users = [
             {
@@ -151,20 +149,20 @@ class Command(BaseCommand):
                 "role": roles["PROC_ENG"],
             },
         ]
-        
+
         for user_data in demo_users:
             user, created = User.objects.get_or_create(
                 username=user_data["username"],
                 defaults={
                     **user_data,
                     "organization": org,
-                }
+                },
             )
             if created:
                 user.set_password("demo123")
                 user.save()
                 self.stdout.write(self.style.SUCCESS(f"Created user: {user}"))
-        
+
         # Create Project
         project, created = Project.objects.get_or_create(
             organization=org,
@@ -175,13 +173,13 @@ class Command(BaseCommand):
                 "status": Project.Status.ACTIVE,
                 "hierarchy_config": {
                     "template": "standard",
-                    "levels": ["site", "plant", "area", "unit"]
-                }
-            }
+                    "levels": ["site", "plant", "area", "unit"],
+                },
+            },
         )
         if created:
             self.stdout.write(self.style.SUCCESS(f"Created project: {project}"))
-        
+
         # Create Client
         client, created = Client.objects.get_or_create(
             project=project,
@@ -190,11 +188,11 @@ class Command(BaseCommand):
                 "name": "Sinopec Engineering Group",
                 "contact_person": "Zhang Wei",
                 "contact_email": "zhangwei@sinopec.com",
-            }
+            },
         )
         if created:
             self.stdout.write(self.style.SUCCESS(f"Created client: {client}"))
-        
+
         # Create Site
         site, created = Site.objects.get_or_create(
             client=client,
@@ -203,11 +201,11 @@ class Command(BaseCommand):
                 "name": "Zhenhai Refining & Chemical",
                 "location": "Zhenhai, Ningbo, Zhejiang, China",
                 "timezone": "Asia/Shanghai",
-            }
+            },
         )
         if created:
             self.stdout.write(self.style.SUCCESS(f"Created site: {site}"))
-        
+
         # Create Plants
         plants_data = [
             {
@@ -223,16 +221,14 @@ class Command(BaseCommand):
                 "capacity": "500 KTPA",
             },
         ]
-        
+
         for plant_data in plants_data:
             plant, created = Plant.objects.get_or_create(
-                site=site,
-                code=plant_data["code"],
-                defaults=plant_data
+                site=site, code=plant_data["code"], defaults=plant_data
             )
             if created:
                 self.stdout.write(self.style.SUCCESS(f"Created plant: {plant}"))
-        
+
         # Create Naming Conventions
         conventions_data = [
             {
@@ -252,17 +248,19 @@ class Command(BaseCommand):
                 "is_default": False,
             },
         ]
-        
+
         for conv_data in conventions_data:
             conv, created = NamingConvention.objects.get_or_create(
-                project=project,
-                name=conv_data["name"],
-                defaults=conv_data
+                project=project, name=conv_data["name"], defaults=conv_data
             )
             if created:
-                self.stdout.write(self.style.SUCCESS(f"Created naming convention: {conv}"))
-        
-        self.stdout.write(self.style.SUCCESS("\nAdministration demo data seeded successfully!"))
+                self.stdout.write(
+                    self.style.SUCCESS(f"Created naming convention: {conv}")
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS("\nAdministration demo data seeded successfully!")
+        )
         self.stdout.write("\nDemo accounts:")
         self.stdout.write("  admin / admin123 (Administrator)")
         self.stdout.write("  proj_engineer / demo123 (Project Engineer)")

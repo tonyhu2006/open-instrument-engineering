@@ -9,6 +9,7 @@ Django superusers bypass this restriction.
 This module is the single source of truth for that rule. It must be consulted
 by every code path that exposes project lists or validates X-Project-ID.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -41,14 +42,14 @@ def user_accessible_project_ids(user) -> Optional[list[int]]:
         return None
 
     member_ids = set(
-        TaskForceMembership.objects
-        .filter(user=user)
-        .values_list("task_force__project_id", flat=True)
+        TaskForceMembership.objects.filter(user=user).values_list(
+            "task_force__project_id", flat=True
+        )
     )
     leader_ids = set(
-        ProjectTaskForce.objects
-        .filter(leader=user)
-        .values_list("project_id", flat=True)
+        ProjectTaskForce.objects.filter(leader=user).values_list(
+            "project_id", flat=True
+        )
     )
     return sorted(member_ids | leader_ids)
 

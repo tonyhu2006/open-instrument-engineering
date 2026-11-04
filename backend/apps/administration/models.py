@@ -11,24 +11,22 @@ This module implements:
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-import re
 
 from apps.core.models import TimeStampedModel
-
 
 # =============================================================================
 # Multi-Tenancy Models
 # =============================================================================
+
 
 class Organization(TimeStampedModel):
     """
     Organization - Top-level tenant for SaaS multi-tenancy.
     All data is isolated at the organization level.
     """
-    
+
     name = models.CharField(
         max_length=200,
         help_text=_("Organization name"),
@@ -52,12 +50,12 @@ class Organization(TimeStampedModel):
         default=True,
         help_text=_("Whether this organization is active"),
     )
-    
+
     class Meta:
         verbose_name = _("Organization")
         verbose_name_plural = _("Organizations")
         ordering = ["name"]
-    
+
     def __str__(self):
         return f"{self.code} - {self.name}"
 
@@ -74,19 +72,20 @@ class Organization(TimeStampedModel):
 # RBAC Models (Shared - stored in public schema)
 # =============================================================================
 
+
 class Role(TimeStampedModel):
     """
     Role - Defines user roles with hierarchical levels.
     Level 5 is highest (Administrator), Level 1 is lowest (Guest).
     """
-    
+
     class Level(models.IntegerChoices):
         GUEST = 1, _("Guest")
         ENGINEER_L2 = 2, _("Engineer Level 2")
         ENGINEER_L3 = 3, _("Engineer Level 3")
         PROJECT_ENGINEER = 4, _("Project Engineer")
         ADMINISTRATOR = 5, _("Administrator")
-    
+
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
@@ -129,7 +128,7 @@ class Role(TimeStampedModel):
             "Lower values appear first."
         ),
     )
-    
+
     class Meta:
         verbose_name = _("Role")
         verbose_name_plural = _("Roles")
@@ -140,7 +139,7 @@ class Role(TimeStampedModel):
                 name="unique_role_code_per_org",
             ),
         ]
-    
+
     def __str__(self):
         return f"{self.name} (Level {self.level})"
 
@@ -150,7 +149,7 @@ class User(AbstractUser):
     Custom User model extending Django's AbstractUser.
     Adds organization membership and role assignment.
     """
-    
+
     organization = models.ForeignKey(
         Organization,
         on_delete=models.SET_NULL,
@@ -206,23 +205,23 @@ class User(AbstractUser):
             "Structure: { tableWidths: { <storageKey>: { <colKey>: <px> } }, ... }"
         ),
     )
-    
+
     class Meta:
         verbose_name = _("User")
         verbose_name_plural = _("Users")
-    
+
     def __str__(self):
         return self.get_full_name() or self.username
-    
+
     def has_permission(self, model_name: str, action: str) -> bool:
         """Check if user has permission for a specific action on a model."""
         if not self.role:
             return False
-        
+
         # Administrators have all permissions
         if self.role.level == Role.Level.ADMINISTRATOR:
             return True
-        
+
         permissions = self.role.permissions.get(model_name, [])
         return action in permissions
 
@@ -234,13 +233,14 @@ class User(AbstractUser):
 # assignment is now handled via ProjectTaskForce + TaskForceMembership.
 # Migration 0002_remove_projectmembership drops the table.
 
+
 class ProjectTaskForce(TimeStampedModel):
     """
     ProjectTaskForce - Team/group within a project.
     Provides data isolation between different teams.
     Uses project_id (integer) to reference ProjectTenant without cross-schema FK.
     """
-    
+
     project_id = models.IntegerField(
         default=0,
         help_text=_("ProjectTenant ID (references tenants.ProjectTenant)"),
@@ -269,7 +269,7 @@ class ProjectTaskForce(TimeStampedModel):
         default=True,
         help_text=_("Whether this task force is active"),
     )
-    
+
     class Meta:
         verbose_name = _("Project Task Force")
         verbose_name_plural = _("Project Task Forces")
@@ -279,14 +279,15 @@ class ProjectTaskForce(TimeStampedModel):
                 name="unique_task_force_code_per_project",
             ),
         ]
-    
+
     def __str__(self):
         return f"Project {self.project_id} - {self.name}"
-    
+
     @property
     def project(self):
         """Get the ProjectTenant instance."""
         from apps.tenants.models import ProjectTenant
+
         return ProjectTenant.objects.filter(pk=self.project_id).first()
 
 
@@ -294,7 +295,7 @@ class TaskForceMembership(TimeStampedModel):
     """
     TaskForceMembership - Links users to task forces.
     """
-    
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -312,7 +313,7 @@ class TaskForceMembership(TimeStampedModel):
         default="member",
         help_text=_("Role in task force (e.g., 'leader', 'member')"),
     )
-    
+
     class Meta:
         verbose_name = _("Task Force Membership")
         verbose_name_plural = _("Task Force Memberships")
@@ -322,7 +323,7 @@ class TaskForceMembership(TimeStampedModel):
                 name="unique_user_task_force_membership",
             ),
         ]
-    
+
     def __str__(self):
         return f"{self.user} - {self.task_force}"
 
@@ -336,18 +337,19 @@ class TaskForceMembership(TimeStampedModel):
 # Audit Log (Shared - stored in public schema)
 # =============================================================================
 
+
 class AuditLog(models.Model):
     """
     AuditLog - Records all data operations (Who/When/What).
     Stored in public schema for cross-project audit trail.
     """
-    
+
     class Action(models.TextChoices):
         CREATE = "CREATE", _("Create")
         READ = "READ", _("Read")
         UPDATE = "UPDATE", _("Update")
         DELETE = "DELETE", _("Delete")
-    
+
     id = models.BigAutoField(primary_key=True)
     organization = models.ForeignKey(
         Organization,
@@ -411,7 +413,7 @@ class AuditLog(models.Model):
         auto_now_add=True,
         help_text=_("When the action occurred"),
     )
-    
+
     class Meta:
         verbose_name = _("Audit Log")
         verbose_name_plural = _("Audit Logs")
@@ -422,14 +424,15 @@ class AuditLog(models.Model):
             models.Index(fields=["user", "-timestamp"]),
             models.Index(fields=["model_name", "object_id"]),
         ]
-    
+
     def __str__(self):
         return f"{self.user} {self.action} {self.model_name}:{self.object_id}"
-    
+
     @property
     def project(self):
         """Get the ProjectTenant instance."""
         if self.project_id:
             from apps.tenants.models import ProjectTenant
+
             return ProjectTenant.objects.filter(pk=self.project_id).first()
         return None
