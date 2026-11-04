@@ -480,3 +480,32 @@ ProjectMembership 自项目改用 `ProjectTaskForce + TaskForceMembership` 体�
 ### 结果
 - 索引对应 HEAD `b5be71d`：860 nodes / 1,653 edges / 69 clusters / 41 flows / 578 embeddings ✅
 - AGENTS.md / CLAUDE.md 各仅 1 行统计更新（AGENTS.md 另含第 5 行说明改写）✅
+
+---
+
+## 2026-11-04（后续 5）— 已实现功能对齐 SPECIFICATION V2.1
+
+**触发指令**：代码中已实现的功能，如果不符合 /docs/SPECIFICATION.md，请修改到符合。
+
+### 范围
+只修正**已实现**的功能（WP-01 / 01A / 02 / 03 及 WP-04 骨架涉及的部分），不新增未开工模块。spec 文件未改动；无法按字面实现或 spec 内部矛盾之处记入 `docs/OPEN_QUESTIONS.md` OQ-002 ~ OQ-011，并按 §4.12 补录 OQ-012 ~ OQ-022。
+
+### 主要修正（详见 `docs/IMPLEMENTATION.md` 2.0.5）
+- 安全：RBAC 矩阵真正生效（此前 Guest 可写工程数据）；项目 CRUD 权限；堵住 PE 经项目组/成员端点越权进入任意项目的两条路径；非法 `X-Project-ID` → 403。
+- 全局契约：TenantBaseModel（审计字段/软删除/row_version）、Service 层、AuditLog（迁入 apps.audit，只追加）、§4.2.2 错误体、page_size、/api/v1（D2）与 auth 别名（D1）。
+- 领域：PlantHierarchy.plant 外键、Loop 编号在 Unit 内唯一、schema 命名、项目状态、hierarchy_config 校验与默认层级、NamingConvention §15.5 全套、§15.7 端点、种子命令重写（V1 此前失败）。
+- 前端：/api/v1 路径、错误体解析、row_version 冲突提示、权限改为由 /me/ 矩阵驱动（D5）、role_in_project、ARCHIVED、按 plant 外键渲染层级、用户密码改走 reset-password。
+- 迁移：administration 0006–0009、audit 0001、core_engineering 0002–0005、tenants 0002；已用旧代码造的遗留数据（重复项目组、DELETED 位号、按 code 匹配的根节点、旧 levels 列表、旧命名规则列表）实测迁移正确。
+
+### 验证（Docker 不可用，使用本机 PostgreSQL 16 :5433 / Redis 7 :6380 临时实例，全新数据库）
+- V1 `migrate_schemas --shared` / `migrate_schemas` / `seed_admin_data` / `seed_demo_data`：✅（重复执行幂等）
+- V2 `ruff check .`：All checks passed；`black --check .`：92 files unchanged ✅
+- V3 `pytest`：59 passed ✅
+- V4 `spectacular --validate --fail-on-warn`：exit 0 ✅
+- V5 `npm run lint && npm run build`：✅；`npm run i18n:check`：in sync ✅
+- V6 `pytest tests/test_tenant_isolation.py -x`：22 passed ✅
+- `makemigrations --check`：No changes detected ✅
+- 真实 HTTP 冒烟（runserver + curl）与 Playwright 页面冒烟（9 个页面，无 4xx/5xx、无 JS 错误）✅
+
+### 说明
+- 本环境无 GitNexus MCP/CLI，按 AGENTS.md 休眠条款以"改动前 grep 调用方 + 改动后跑全量测试"替代，未做图谱级影响分析。
