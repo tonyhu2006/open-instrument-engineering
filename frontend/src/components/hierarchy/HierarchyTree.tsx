@@ -127,7 +127,11 @@ export function HierarchyTree() {
       {projects.map(project => {
         const isProjectExpanded = expandedProjects.has(project.id)
         const isProjectSelected = selectedProject?.id === project.id
-        const projectClients = clients.filter(c => c.project === project.id)
+        // Tenant isolation: `clients` is already scoped to the active project
+        // (loaded via X-Project-ID header → tenant schema). The tenant Client
+        // model has no `project` FK, so we don't filter by project here — we
+        // only render clients under the currently selected project.
+        const projectClients = isProjectSelected ? clients : []
 
         return (
           <div key={project.id}>

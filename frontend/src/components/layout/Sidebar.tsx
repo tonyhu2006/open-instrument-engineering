@@ -10,14 +10,17 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { HierarchySelector, HierarchyTree } from '@/components/hierarchy'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface NavItem {
   title: string
   href: string
   icon: React.ComponentType<{ className?: string }>
+  visible?: (perms: ReturnType<typeof usePermissions>) => boolean
 }
 
 const navItems: NavItem[] = [
@@ -29,15 +32,25 @@ const navItems: NavItem[] = [
 ]
 
 const bottomNavItems: NavItem[] = [
+  {
+    title: 'Administration',
+    href: '/admin',
+    icon: ShieldCheck,
+    visible: (p) => p.canAccessAdmin,
+  },
   { title: 'System Status', href: '/status', icon: Activity },
   { title: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export function Sidebar() {
   const [showHierarchyTree, setShowHierarchyTree] = useState(false)
+  const perms = usePermissions()
+  const visibleBottomItems = bottomNavItems.filter(
+    (item) => !item.visible || item.visible(perms),
+  )
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
+    <aside className="flex h-screen w-full flex-col border-r bg-sidebar text-sidebar-foreground">
       <div className="flex h-16 items-center border-b px-6">
         <h1 className="text-xl font-bold text-sidebar-primary">
           OpenInstrument
@@ -90,7 +103,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t p-4">
-        {bottomNavItems.map((item) => (
+        {visibleBottomItems.map((item) => (
           <NavLink
             key={item.href}
             to={item.href}

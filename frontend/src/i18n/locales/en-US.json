@@ -1,0 +1,720 @@
+{
+  "common": {
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "new": "New",
+    "search": "Search...",
+    "searchPlaceholder": "Search...",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "noData": "No data",
+    "error": "Error",
+    "confirm": "Confirm",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "name": "Name",
+    "code": "Code",
+    "description": "Description",
+    "type": "Type",
+    "createdAt": "Created at",
+    "updatedAt": "Updated at",
+    "details": "Details",
+    "members": "Members",
+    "member": "Member",
+    "leader": "Leader",
+    "role": "Role",
+    "roles": "Roles",
+    "user": "User",
+    "users": "Users",
+    "selectPlaceholder": "— Select —",
+    "notAssigned": "—",
+    "openModule": "Open",
+    "noPermission": "No permission",
+    "needHigherPrivilege": "Higher privilege required",
+    "saveFailed": "Save failed",
+    "deleteFailed": "Delete failed",
+    "loadFailed": "Failed to load",
+    "confirmDelete": "Are you sure you want to delete this?",
+    "required": "*",
+    "all": "All",
+    "filter": "Filter",
+    "reset": "Reset",
+    "back": "Back"
+  },
+  "header": {
+    "admin": "Administration",
+    "adminOrganizations": "Administration · Organizations",
+    "adminProjects": "Administration · Engineering Projects",
+    "adminProjectHierarchy": "Administration · Project Hierarchy",
+    "adminUsers": "Administration · Users",
+    "adminRoles": "Administration · Roles & Permissions",
+    "adminTaskForces": "Administration · Task Forces",
+    "adminAuditLogs": "Administration · Audit Logs",
+    "instrumentDetail": "Instrument Detail",
+    "instrumentIndex": "Instrument Index",
+    "loops": "Loops",
+    "specifications": "Specification Sheets",
+    "wiring": "Wiring Manager",
+    "status": "System Status",
+    "settings": "Settings",
+    "dashboard": "Dashboard",
+    "currentProject": "Current Project",
+    "noProject": "No project selected",
+    "logout": "Log out",
+    "language": "Language"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "instruments": "Instruments",
+    "loops": "Loops",
+    "specs": "Specifications",
+    "wiring": "Wiring",
+    "status": "Status",
+    "admin": "Administration",
+    "settings": "Settings",
+    "collapse": "Collapse",
+    "expand": "Expand"
+  },
+  "admin": {
+    "title": "System Administration",
+    "subtitle": "Manage organizations, users, roles and project permissions",
+    "permissionsOverview": "Permissions Overview",
+    "stat": {
+      "role": "Role",
+      "discipline": "Discipline",
+      "accessibleModules": "Accessible Modules"
+    },
+    "section": {
+      "systemAdminTitle": "System Administration",
+      "systemAdminDesc": "Configuration accessible only to administrators",
+      "projectsAndTeamTitle": "Projects & Teams",
+      "projectsAndTeamDesc": "Engineering project and task force management for administrators and project engineers"
+    },
+    "tab": {
+      "overview": "Overview",
+      "organizations": "Organizations",
+      "users": "Users",
+      "roles": "Roles",
+      "auditLogs": "Audit Logs",
+      "projects": "Engineering Projects",
+      "taskForces": "Task Forces"
+    },
+    "card": {
+      "organizationsTitle": "Organizations",
+      "organizationsDesc": "Manage top-level multi-tenant organizations and sub-departments",
+      "projectsTitle": "Engineering Projects",
+      "projectsDesc": "Manage engineering projects (one project = one isolated schema)",
+      "usersTitle": "User Management",
+      "usersDesc": "Create, activate and assign user roles",
+      "rolesTitle": "Roles & Permissions",
+      "rolesDesc": "Configure role hierarchy and permission matrix",
+      "taskForcesTitle": "Task Forces",
+      "taskForcesDesc": "Create task forces and manage members (PE can only manage own task forces)",
+      "auditLogsTitle": "Audit Logs",
+      "auditLogsDesc": "View system operation history"
+    },
+    "badge": {
+      "adminOnly": "Administrator Only",
+      "adminOrPe": "Administrator / Project Engineer",
+      "noPermission": "No Access"
+    },
+    "discipline": {
+      "instrumentation": "Instrumentation",
+      "process": "Process",
+      "mechanical": "Mechanical / Piping",
+      "generic": "Generic"
+    },
+    "role": {
+      "unassigned": "Unassigned",
+      "administrator": "Administrator"
+    },
+    "guard": {
+      "deniedTitle": "Access Denied",
+      "deniedBody": "You do not have permission to view this page.",
+      "loginPrompt": "Please log in to continue."
+    }
+  },
+  "organizations": {
+    "title": "Organizations",
+    "description": "Manage top-level multi-tenant organizations and sub-departments",
+    "createLabel": "New Organization",
+    "editTitle": "Edit Organization",
+    "createTitle": "New Organization",
+    "editDescription": "Update organization details",
+    "createDescription": "Create a top-level organization or sub-department",
+    "fields": {
+      "name": "Name",
+      "code": "Code",
+      "parent": "Parent Organization",
+      "description": "Description",
+      "isActive": "Active"
+    },
+    "parentNone": "— Top-level —"
+  },
+  "users": {
+    "title": "Users",
+    "description": "Manage system users, assign roles and organizations",
+    "searchPlaceholder": "Search by username / email / full name",
+    "createLabel": "New User",
+    "editTitle": "Edit User",
+    "createTitle": "New User",
+    "dialogDescription": "User profile and role assignment",
+    "passwordHintEdit": "(leave blank to keep current password)",
+    "fields": {
+      "username": "Username",
+      "email": "Email",
+      "fullName": "Full Name",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "phone": "Phone",
+      "department": "Department",
+      "title": "Title",
+      "language": "Language",
+      "timezone": "Timezone",
+      "organization": "Organization",
+      "role": "Role",
+      "password": "Password",
+      "passwordConfirm": "Confirm Password",
+      "isActive": "Active",
+      "isStaff": "Staff",
+      "isSuperuser": "Superuser"
+    },
+    "columns": {
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Email",
+      "role": "Role",
+      "organization": "Organization",
+      "status": "Status"
+    },
+    "actions": {
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "toggleFailed": "Toggle activation failed"
+    },
+    "errors": {
+      "passwordMismatch": "Passwords do not match",
+      "passwordRequired": "A password is required when creating a new user"
+    },
+    "selectPlaceholder": "— Unassigned —"
+  },
+  "roles": {
+    "title": "Roles & Permissions",
+    "description": "Configure role hierarchy (1-5) and module permission matrix",
+    "createLabel": "New Role",
+    "editTitle": "Edit Role",
+    "createTitle": "New Role",
+    "dialogDescription": "Role level determines data access capability (5 = Administrator, 1 = Guest).",
+    "selectOrgPlaceholder": "— Select organization —",
+    "fields": {
+      "code": "Code",
+      "name": "Display Name",
+      "level": "Level",
+      "displayOrder": "Display Order",
+      "organization": "Organization",
+      "description": "Description",
+      "permissions": "Permission Matrix (JSON)",
+      "isActive": "Active"
+    },
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "level": "Level",
+      "organization": "Organization",
+      "type": "Type"
+    },
+    "type": {
+      "system": "System",
+      "custom": "Custom"
+    },
+    "errors": {
+      "permissionsJson": "Permission matrix must be valid JSON",
+      "systemRoleProtected": "System roles cannot be deleted"
+    },
+    "levelOption": {
+      "5": "Level 5 - Administrator",
+      "4": "Level 4 - Project Manager / Project Engineer",
+      "3": "Level 3 - Discipline Engineer",
+      "2": "Level 2 - Engineer",
+      "1": "Level 1 - Guest"
+    },
+    "level": {
+      "1": "Guest",
+      "2": "Engineer L2",
+      "3": "Engineer L3",
+      "4": "Project Engineer / Manager",
+      "5": "Administrator"
+    }
+  },
+  "projects": {
+    "title": "Engineering Projects",
+    "description": "Manage engineering projects (each project corresponds to an isolated database schema with physical isolation)",
+    "searchPlaceholder": "Search by project no., name or organization",
+    "createLabel": "New Project",
+    "editTitle": "Edit Engineering Project",
+    "createTitle": "New Engineering Project",
+    "createDescription": "Creating a project will automatically build an isolated database schema to physically isolate all engineering data of this project.",
+    "editDescription": "Project number and schema cannot be modified after creation.",
+    "submitCreate": "Create Project & Build Schema",
+    "openHierarchyTitle": "Manage Hierarchy (Client / Site / Plant)",
+    "deleteTitleAdmin": "Delete (admin only)",
+    "deleteConfirm": "⚠️ Confirm delete project \"{{projectNo}} - {{name}}\"?\n\nThis will permanently delete the entire database schema ({{schema}}) and all associated engineering data (plants/areas/units/tags/loops). This cannot be undone!",
+    "validation": {
+      "requiredFields": "Project number, name and organization are required."
+    },
+    "schemaHint": "Schema name will be derived from the project number (lowercase, underscores).",
+    "selectOrgPlaceholder": "Select organization",
+    "fields": {
+      "projectNo": "Project No.",
+      "name": "Project Name",
+      "schemaName": "Schema Name",
+      "organization": "Organization",
+      "description": "Description",
+      "status": "Status",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "createdAt": "Created at"
+    },
+    "placeholder": {
+      "projectNo": "e.g. PRJ-2025-003",
+      "name": "e.g. LNG Receiving Terminal Project"
+    },
+    "columns": {
+      "projectNo": "Project No.",
+      "name": "Project Name",
+      "organization": "Organization",
+      "schema": "Schema",
+      "status": "Status",
+      "dateRange": "Start / End"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "ON_HOLD": "On Hold",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "hierarchy": {
+    "title": "Project Hierarchy",
+    "subtitle": "Client → Site → Plant → Area → Unit",
+    "back": "Back to projects",
+    "loading": "Loading project hierarchy...",
+    "retry": "Retry",
+    "projectNotFound": "Project not found",
+    "noClientPlaceholder": "This project has no client yet. Click \"New Client\" above to start building the hierarchy.",
+    "stat": {
+      "organization": "Organization",
+      "clients": "Clients",
+      "sites": "Sites",
+      "plants": "Plants",
+      "areas": "Areas",
+      "units": "Units"
+    },
+    "meta": {
+      "siteCount": "{{count}} sites",
+      "noSites": "No sites yet",
+      "areaCount": "{{count}} areas",
+      "noAreas": "No areas yet",
+      "unitCount": "{{count}} units",
+      "noUnits": "No units yet",
+      "deactivated": "Deactivated"
+    },
+    "lazyPlantRoot": "First Area under plant {{code}} — the corresponding PLANT root node will be created automatically.",
+    "checkbox": { "isActive": "Active" },
+    "client": {
+      "section": "Client",
+      "create": "+ New Client",
+      "edit": "Edit Client",
+      "delete": "Delete client",
+      "newSite": "New site",
+      "createTitle": "New Client",
+      "editTitle": "Edit Client",
+      "description": "Client is the top of the project hierarchy and represents the owner / end user.",
+      "fields": {
+        "code": "Code",
+        "name": "Name",
+        "contactPerson": "Contact Person",
+        "contactEmail": "Email",
+        "contactPhone": "Phone",
+        "address": "Address"
+      },
+      "placeholder": { "code": "e.g. SINOPEC" },
+      "constraint": "One project corresponds to one client."
+    },
+    "site": {
+      "section": "Sites",
+      "create": "New Site",
+      "edit": "Edit Site",
+      "delete": "Delete site",
+      "newPlant": "New plant",
+      "createTitle": "New Site",
+      "editTitle": "Edit Site",
+      "description": "A site is a physical location (campus) under a client.",
+      "fields": {
+        "code": "Code",
+        "name": "Name",
+        "location": "Location",
+        "timezone": "Timezone",
+        "address": "Detailed Address"
+      },
+      "placeholder": {
+        "code": "e.g. ZH",
+        "location": "e.g. Ningbo, Zhejiang"
+      }
+    },
+    "plant": {
+      "section": "Plants",
+      "create": "New Plant",
+      "edit": "Edit Plant",
+      "delete": "Delete plant",
+      "newArea": "New Area",
+      "createTitle": "New Plant",
+      "editTitle": "Edit Plant",
+      "description": "A plant is a production unit under a site.",
+      "fields": {
+        "code": "Code",
+        "name": "Name",
+        "capacity": "Capacity",
+        "description": "Description"
+      },
+      "placeholder": {
+        "code": "e.g. ETH",
+        "capacity": "e.g. 1000 KTPA"
+      }
+    },
+    "area": {
+      "section": "Areas",
+      "create": "New Area",
+      "edit": "Edit Area",
+      "delete": "Delete area",
+      "newUnit": "New Unit",
+      "createTitle": "New Area (Area)",
+      "editTitle": "Edit Area",
+      "description": "An area is a functional zone inside a plant (MPTT mid layer), e.g. cracking, separation, utilities.",
+      "placeholder": { "code": "e.g. A100" }
+    },
+    "unit": {
+      "section": "Units",
+      "create": "New Unit",
+      "edit": "Edit Unit",
+      "delete": "Delete unit",
+      "createTitle": "New Unit (Unit)",
+      "editTitle": "Edit Unit",
+      "description": "A unit is the smallest production unit under an area (MPTT leaf). Instrument tags must belong to a unit.",
+      "placeholder": { "code": "e.g. U100" }
+    },
+    "deleteConfirm": "Confirm delete {{label}} \"{{code}} - {{name}}\"?\n\nIts descendants ({{cascade}}) will be cascade-deleted and cannot be recovered!",
+    "labels": {
+      "client": "client",
+      "site": "site",
+      "plant": "plant",
+      "area": "area",
+      "unit": "unit"
+    },
+    "cascade": {
+      "client": "all sites and plants",
+      "site": "all plants",
+      "plant": "linked data",
+      "area": "all units and tags under this area",
+      "unit": "all tags and loops under this unit"
+    }
+  },
+  "taskforce": {
+    "title": "Task Forces",
+    "descriptionAdmin": "Centrally manage task forces across all projects. Search supports project no./name and task-force code/name.",
+    "descriptionPe": "Project Engineers can only manage task forces they created.",
+    "createLabel": "New Task Force",
+    "editTitle": "Edit Task Force",
+    "createTitle": "New Task Force",
+    "createDescAdmin": "Administrators can base task forces on any project, or create stand-alone ones.",
+    "createDescPe": "Project Engineers must base task forces on a project.",
+    "searchPlaceholder": "Search by project no./name or task-force code/name",
+    "columns": {
+      "project": "Owner Project",
+      "code": "Code",
+      "name": "Name",
+      "leader": "Leader",
+      "createdBy": "Created by"
+    },
+    "fields": {
+      "project": "Linked Project",
+      "code": "Code",
+      "name": "Name",
+      "description": "Description",
+      "leader": "Leader",
+      "isActive": "Active"
+    },
+    "projectLockedHint": "Project link cannot be changed once the task force is created.",
+    "selectProjectPlaceholder": "— Select project —",
+    "noLeader": "Unassigned",
+    "errors": {
+      "selectProject": "Please select a linked project",
+      "duplicateCode": "Save failed: code \"{{code}}\" already exists under project {{project}}. Codes must be unique within a project.",
+      "unknownProject": "(unknown project #{{id}})",
+      "removeFailed": "Failed to remove member",
+      "deleteFailed": "Failed to delete task force"
+    },
+    "members": {
+      "title": "Members of {{name}}",
+      "pageTitle": "Task Force Members",
+      "back": "Back to Task Forces",
+      "taskForceNotFound": "Task force not found",
+      "addTitle": "Add Member",
+      "selectUser": "— Select user —",
+      "roleLabel": "Role within task force",
+      "addLabel": "Add",
+      "removeLabel": "Remove",
+      "removeConfirm": "Remove this member from the task force?",
+      "deleteConfirm": "Confirm delete task force \"{{name}}\"?",
+      "manageTitle": "Manage Members",
+      "stat": {
+        "total": "Members",
+        "leads": "Leads",
+        "reviewers": "Reviewers",
+        "members": "Members (role)"
+      },
+      "roleOptions": {
+        "member": "Member",
+        "lead": "Lead",
+        "reviewer": "Reviewer"
+      },
+      "noMembers": "No members yet",
+      "addedAt": "Added at"
+    },
+    "createdByMe": "Created by me"
+  },
+  "auditLogs": {
+    "title": "Audit Logs",
+    "description": "System operation history (read-only)",
+    "systemUser": "System",
+    "columns": {
+      "timestamp": "Timestamp",
+      "user": "User",
+      "action": "Action",
+      "model": "Model",
+      "object": "Object",
+      "ipAddress": "IP",
+      "details": "Details"
+    },
+    "filters": {
+      "user": "User",
+      "action": "Action",
+      "from": "From",
+      "to": "To"
+    }
+  },
+  "dialog": {
+    "close": "Close"
+  },
+  "table": {
+    "noData": "No data",
+    "loading": "Loading...",
+    "resetColumnWidth": "Reset column width"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome to OpenInstrument — AI-Driven Instrumentation Design Platform",
+    "card": {
+      "apiStatus": "API Status",
+      "database": "Database",
+      "cache": "Cache",
+      "healthCheck": "Health Check",
+      "quickStart": "Quick Start",
+      "quickStartDesc": "Get started with OpenInstrument",
+      "systemInfo": "System Information",
+      "systemInfoDesc": "Backend API connection details"
+    },
+    "badge": {
+      "connected": "Connected",
+      "error": "Error",
+      "unknown": "Unknown",
+      "offline": "Offline",
+      "checking": "Checking...",
+      "failed": "Failed",
+      "passed": "Passed"
+    },
+    "loading": "Loading...",
+    "version": "Version: {{version}}",
+    "autoRefresh": "Auto-refresh: 30s",
+    "errorConnect": "Failed to connect to backend API",
+    "quickStep": {
+      "hierarchy": "1. Set up Plant Hierarchy",
+      "hierarchyDesc": "Define your Plant, Areas, and Units structure",
+      "tags": "2. Create Instrument Tags",
+      "tagsDesc": "Add instruments to your Instrument Index",
+      "loops": "3. Configure Loops",
+      "loopsDesc": "Group instruments into control loops"
+    },
+    "info": {
+      "apiEndpoint": "API Endpoint",
+      "healthCheck": "Health Check",
+      "apiDocs": "API Docs",
+      "backendPort": "Backend Port",
+      "frontendPort": "Frontend Port"
+    }
+  },
+  "statusPage": {
+    "title": "System Status",
+    "subtitle": "Monitor the health of all system components",
+    "refresh": "Refresh",
+    "lastChecked": "Last checked: {{time}}",
+    "connectionError": "Connection Error",
+    "errorDetail": "Make sure the backend server is running on port 8000",
+    "errorConnect": "Failed to connect to backend API",
+    "badge": {
+      "healthy": "Healthy",
+      "error": "Error",
+      "unknown": "Unknown",
+      "offline": "Offline",
+      "checking": "Checking..."
+    },
+    "card": {
+      "apiServer": "API Server",
+      "apiServerDesc": "Django REST Framework",
+      "database": "Database",
+      "databaseDesc": "PostgreSQL 16",
+      "cache": "Cache",
+      "cacheDesc": "Redis 7"
+    },
+    "field": {
+      "status": "Status",
+      "version": "Version",
+      "port": "Port"
+    }
+  },
+  "login": {
+    "subtitle": "AI-Driven Instrumentation Design Platform",
+    "username": "Username",
+    "password": "Password",
+    "usernamePlaceholder": "Enter your username",
+    "passwordPlaceholder": "Enter your password",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "failed": "Login failed. Please check your credentials.",
+    "demoAccounts": "Demo Accounts",
+    "footer": "© 2025 OpenInstrument. Open Source under AGPL-3.0"
+  },
+  "instruments": {
+    "title": "Instrument Index",
+    "subtitle": "Manage instrument tags and specifications",
+    "refresh": "Refresh",
+    "export": "Export",
+    "newTag": "New Tag",
+    "searchPlaceholder": "Search tags...",
+    "filters": "Filters",
+    "selected": "{{count}} selected",
+    "bulkEdit": "Bulk Edit",
+    "deleteSelected": "Delete Selected",
+    "emptyTitle": "No instruments found",
+    "emptyDesc": "Get started by creating your first instrument tag.",
+    "createTag": "Create Tag",
+    "tryAgain": "Try Again",
+    "loadFailed": "Failed to fetch data",
+    "columns": {
+      "tagNumber": "Tag Number",
+      "service": "Service",
+      "status": "Status",
+      "revision": "Rev",
+      "description": "Description",
+      "lastUpdated": "Last Updated"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "PENDING": "Pending",
+      "UNDER_REVIEW": "Under Review",
+      "DELETED": "Deleted"
+    },
+    "action": {
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "pagination": {
+      "showing": "Showing {{from}} to {{to}} of {{total}} results",
+      "previous": "Previous",
+      "next": "Next"
+    }
+  },
+  "tagDetail": {
+    "back": "Back to Instruments",
+    "notFound": "Tag not found",
+    "loadFailed": "Failed to load tag",
+    "saveFailed": "Failed to save",
+    "noService": "No service description",
+    "revision": "Rev {{n}}",
+    "action": {
+      "history": "History",
+      "duplicate": "Duplicate",
+      "save": "Save"
+    },
+    "section": {
+      "basicInfo": "Basic Information",
+      "rawSpec": "Raw Specification Data"
+    },
+    "fields": {
+      "tagNumber": "Tag Number",
+      "serviceDescription": "Service Description",
+      "description": "Description",
+      "fullTag": "Full Tag"
+    },
+    "group": {
+      "general": "General",
+      "process": "Process",
+      "performance": "Performance",
+      "electrical": "Electrical",
+      "mechanical": "Mechanical",
+      "other": "Other"
+    },
+    "field": {
+      "manufacturer": "Manufacturer",
+      "model": "Model",
+      "rangeMin": "Range Min",
+      "rangeMax": "Range Max",
+      "rangeUnit": "Range Unit",
+      "accuracy": "Accuracy",
+      "outputSignal": "Output Signal",
+      "powerSupply": "Power Supply",
+      "enclosureRating": "Enclosure Rating",
+      "processConnection": "Process Connection",
+      "wettedMaterial": "Wetted Material",
+      "notes": "Notes"
+    },
+    "selectPlaceholder": "Select...",
+    "yes": "Yes",
+    "unsavedChanges": "Unsaved changes"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Application preferences and user customization",
+    "tab": {
+      "general": "General",
+      "account": "Account",
+      "notifications": "Notifications",
+      "advanced": "Advanced"
+    },
+    "language": {
+      "title": "Interface Language",
+      "description": "Choose the display language for menus, dialogs and messages. Applied immediately and remembered for future sessions.",
+      "label": "Language",
+      "current": "Current: {{lang}}",
+      "applied": "Language changed to {{lang}}"
+    },
+    "placeholder": {
+      "account": "Account settings (password, profile) — coming soon",
+      "notifications": "Notification preferences — coming soon",
+      "advanced": "Advanced options — coming soon"
+    }
+  }
+}

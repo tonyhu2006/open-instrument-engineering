@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { 
   ArrowLeft, 
   Save, 
@@ -13,30 +14,31 @@ import { engineeringApi, type Tag } from '@/lib/api'
 
 interface SpecField {
   key: string
-  label: string
+  labelKey: string
   type: 'text' | 'number' | 'select' | 'textarea' | 'boolean'
   options?: string[]
   unit?: string
   required?: boolean
-  group?: string
+  group: 'general' | 'process' | 'performance' | 'electrical' | 'mechanical' | 'other'
 }
 
 const defaultSpecFields: SpecField[] = [
-  { key: 'manufacturer', label: 'Manufacturer', type: 'text', group: 'General' },
-  { key: 'model', label: 'Model', type: 'text', group: 'General' },
-  { key: 'range_min', label: 'Range Min', type: 'number', group: 'Process' },
-  { key: 'range_max', label: 'Range Max', type: 'number', group: 'Process' },
-  { key: 'range_unit', label: 'Range Unit', type: 'select', options: ['°C', '°F', 'bar', 'psi', 'kPa', 'MPa', '%', 'm³/h', 'kg/h'], group: 'Process' },
-  { key: 'accuracy', label: 'Accuracy', type: 'text', group: 'Performance' },
-  { key: 'output_signal', label: 'Output Signal', type: 'select', options: ['4-20mA', '0-10V', 'HART', 'Modbus', 'Profibus', 'Foundation Fieldbus'], group: 'Electrical' },
-  { key: 'power_supply', label: 'Power Supply', type: 'select', options: ['24VDC', '110VAC', '220VAC', 'Loop Powered'], group: 'Electrical' },
-  { key: 'enclosure_rating', label: 'Enclosure Rating', type: 'select', options: ['IP65', 'IP66', 'IP67', 'IP68', 'Explosion Proof'], group: 'Mechanical' },
-  { key: 'process_connection', label: 'Process Connection', type: 'text', group: 'Mechanical' },
-  { key: 'material_wetted', label: 'Wetted Material', type: 'text', group: 'Mechanical' },
-  { key: 'notes', label: 'Notes', type: 'textarea', group: 'Other' },
+  { key: 'manufacturer', labelKey: 'tagDetail.field.manufacturer', type: 'text', group: 'general' },
+  { key: 'model', labelKey: 'tagDetail.field.model', type: 'text', group: 'general' },
+  { key: 'range_min', labelKey: 'tagDetail.field.rangeMin', type: 'number', group: 'process' },
+  { key: 'range_max', labelKey: 'tagDetail.field.rangeMax', type: 'number', group: 'process' },
+  { key: 'range_unit', labelKey: 'tagDetail.field.rangeUnit', type: 'select', options: ['°C', '°F', 'bar', 'psi', 'kPa', 'MPa', '%', 'm³/h', 'kg/h'], group: 'process' },
+  { key: 'accuracy', labelKey: 'tagDetail.field.accuracy', type: 'text', group: 'performance' },
+  { key: 'output_signal', labelKey: 'tagDetail.field.outputSignal', type: 'select', options: ['4-20mA', '0-10V', 'HART', 'Modbus', 'Profibus', 'Foundation Fieldbus'], group: 'electrical' },
+  { key: 'power_supply', labelKey: 'tagDetail.field.powerSupply', type: 'select', options: ['24VDC', '110VAC', '220VAC', 'Loop Powered'], group: 'electrical' },
+  { key: 'enclosure_rating', labelKey: 'tagDetail.field.enclosureRating', type: 'select', options: ['IP65', 'IP66', 'IP67', 'IP68', 'Explosion Proof'], group: 'mechanical' },
+  { key: 'process_connection', labelKey: 'tagDetail.field.processConnection', type: 'text', group: 'mechanical' },
+  { key: 'material_wetted', labelKey: 'tagDetail.field.wettedMaterial', type: 'text', group: 'mechanical' },
+  { key: 'notes', labelKey: 'tagDetail.field.notes', type: 'textarea', group: 'other' },
 ]
 
 export function TagDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   
@@ -61,7 +63,7 @@ export function TagDetailPage() {
       setTag(data)
       setSpecData(data.spec_data || {})
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load tag')
+      setError(err instanceof Error ? err.message : t('tagDetail.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -80,14 +82,14 @@ export function TagDetailPage() {
       await engineeringApi.tags.update(tag.id, { spec_data: specData })
       setIsDirty(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
+      setError(err instanceof Error ? err.message : t('tagDetail.saveFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   const groupedFields = defaultSpecFields.reduce((acc, field) => {
-    const group = field.group || 'Other'
+    const group = field.group
     if (!acc[group]) acc[group] = []
     acc[group].push(field)
     return acc
@@ -105,10 +107,10 @@ export function TagDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <p className="text-red-500 mb-4">{error || 'Tag not found'}</p>
+        <p className="text-red-500 mb-4">{error || t('tagDetail.notFound')}</p>
         <Button variant="outline" onClick={() => navigate('/instruments')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Instruments
+          {t('tagDetail.back')}
         </Button>
       </div>
     )
@@ -124,26 +126,26 @@ export function TagDetailPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold font-mono">{tag.tag_number}</h1>
-            <p className="text-sm text-muted-foreground">{tag.service || 'No service description'}</p>
+            <p className="text-sm text-muted-foreground">{tag.service || t('tagDetail.noService')}</p>
           </div>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
             tag.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
             tag.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
             'bg-gray-100 text-gray-800'
           }`}>
-            {tag.status}
+            {t(`instruments.status.${tag.status}`, { defaultValue: tag.status })}
           </span>
-          <span className="text-sm text-muted-foreground">Rev {tag.revision}</span>
+          <span className="text-sm text-muted-foreground">{t('tagDetail.revision', { n: tag.revision })}</span>
         </div>
         
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <History className="h-4 w-4 mr-2" />
-            History
+            {t('tagDetail.action.history')}
           </Button>
           <Button variant="outline" size="sm">
             <Copy className="h-4 w-4 mr-2" />
-            Duplicate
+            {t('tagDetail.action.duplicate')}
           </Button>
           <Button 
             size="sm" 
@@ -155,7 +157,7 @@ export function TagDetailPage() {
             ) : (
               <Save className="h-4 w-4 mr-2" />
             )}
-            Save
+            {t('tagDetail.action.save')}
           </Button>
         </div>
       </div>
@@ -165,11 +167,11 @@ export function TagDetailPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           {/* Basic Info */}
           <section>
-            <h2 className="text-lg font-semibold mb-4">Basic Information</h2>
+            <h2 className="text-lg font-semibold mb-4">{t('tagDetail.section.basicInfo')}</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Tag Number
+                  {t('tagDetail.fields.tagNumber')}
                 </label>
                 <input
                   type="text"
@@ -180,7 +182,7 @@ export function TagDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Service Description
+                  {t('tagDetail.fields.serviceDescription')}
                 </label>
                 <input
                   type="text"
@@ -191,7 +193,7 @@ export function TagDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Description
+                  {t('tagDetail.fields.description')}
                 </label>
                 <input
                   type="text"
@@ -202,7 +204,7 @@ export function TagDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Full Tag
+                  {t('tagDetail.fields.fullTag')}
                 </label>
                 <input
                   type="text"
@@ -217,12 +219,12 @@ export function TagDetailPage() {
           {/* Dynamic Spec Fields */}
           {Object.entries(groupedFields).map(([groupName, fields]) => (
             <section key={groupName}>
-              <h2 className="text-lg font-semibold mb-4">{groupName}</h2>
+              <h2 className="text-lg font-semibold mb-4">{t(`tagDetail.group.${groupName}`)}</h2>
               <div className="grid grid-cols-2 gap-4">
                 {fields.map((field) => (
                   <div key={field.key}>
                     <label className="block text-sm font-medium text-muted-foreground mb-1">
-                      {field.label}
+                      {t(field.labelKey)}
                       {field.required && <span className="text-red-500 ml-1">*</span>}
                     </label>
                     
@@ -250,7 +252,7 @@ export function TagDetailPage() {
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         className="w-full px-3 py-2 rounded-md border focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                       >
-                        <option value="">Select...</option>
+                        <option value="">{t('tagDetail.selectPlaceholder')}</option>
                         {field.options?.map((opt) => (
                           <option key={opt} value={opt}>{opt}</option>
                         ))}
@@ -274,7 +276,7 @@ export function TagDetailPage() {
                           onChange={(e) => handleFieldChange(field.key, e.target.checked)}
                           className="rounded"
                         />
-                        <span className="text-sm">Yes</span>
+                        <span className="text-sm">{t('tagDetail.yes')}</span>
                       </label>
                     )}
                   </div>
@@ -285,7 +287,7 @@ export function TagDetailPage() {
 
           {/* Raw JSON View */}
           <section>
-            <h2 className="text-lg font-semibold mb-4">Raw Specification Data</h2>
+            <h2 className="text-lg font-semibold mb-4">{t('tagDetail.section.rawSpec')}</h2>
             <pre className="p-4 rounded-lg bg-muted text-sm overflow-x-auto">
               {JSON.stringify(specData, null, 2)}
             </pre>
@@ -297,7 +299,7 @@ export function TagDetailPage() {
       {isDirty && (
         <div className="fixed bottom-4 right-4 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
           <AlertCircle className="h-4 w-4" />
-          <span className="text-sm font-medium">Unsaved changes</span>
+          <span className="text-sm font-medium">{t('tagDetail.unsavedChanges')}</span>
         </div>
       )}
     </div>

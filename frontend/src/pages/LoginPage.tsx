@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { authApi } from '@/lib/api'
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   
   const [username, setUsername] = useState('')
@@ -24,7 +26,7 @@ export function LoginPage() {
       navigate('/')
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { detail?: string } } }
-      setError(errorObj.response?.data?.detail || 'Login failed. Please check your credentials.')
+      setError(errorObj.response?.data?.detail || t('login.failed'))
     } finally {
       setIsLoading(false)
     }
@@ -52,7 +54,7 @@ export function LoginPage() {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-white">OpenInstrument</h1>
-            <p className="text-slate-400 mt-2">AI-Driven Instrumentation Design Platform</p>
+            <p className="text-slate-400 mt-2">{t('login.subtitle')}</p>
           </div>
           
           {/* Error Message */}
@@ -67,7 +69,7 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
-                Username
+                {t('login.username')}
               </label>
               <input
                 id="username"
@@ -75,7 +77,7 @@ export function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Enter your username"
+                placeholder={t('login.usernamePlaceholder')}
                 required
                 autoComplete="username"
               />
@@ -83,7 +85,7 @@ export function LoginPage() {
             
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                Password
+                {t('login.password')}
               </label>
               <input
                 id="password"
@@ -91,7 +93,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Enter your password"
+                placeholder={t('login.passwordPlaceholder')}
                 required
                 autoComplete="current-password"
               />
@@ -105,17 +107,17 @@ export function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
+                  {t('login.signingIn')}
                 </>
               ) : (
-                'Sign In'
+                t('login.signIn')
               )}
             </Button>
           </form>
           
           {/* Demo Accounts */}
           <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-center text-slate-400 text-sm mb-4">Demo Accounts</p>
+            <p className="text-center text-slate-400 text-sm mb-4">{t('login.demoAccounts')}</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2 rounded bg-white/5 text-slate-300">
                 <span className="font-medium">admin</span> / admin123
@@ -134,9 +136,7 @@ export function LoginPage() {
         </div>
         
         {/* Footer */}
-        <p className="text-center text-slate-500 text-sm mt-6">
-          © 2025 OpenInstrument. Open Source under AGPL-3.0
-        </p>
+        <p className="text-center text-slate-500 text-sm mt-6">{t('login.footer')}</p>
       </div>
     </div>
   )

@@ -1,0 +1,720 @@
+{
+  "common": {
+    "save": "保存",
+    "saving": "保存中...",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "新建",
+    "new": "新建",
+    "search": "搜索...",
+    "searchPlaceholder": "搜索...",
+    "refresh": "刷新",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "error": "错误",
+    "confirm": "确认",
+    "close": "关闭",
+    "yes": "是",
+    "no": "否",
+    "actions": "操作",
+    "status": "状态",
+    "active": "启用",
+    "inactive": "禁用",
+    "enabled": "启用",
+    "disabled": "禁用",
+    "name": "名称",
+    "code": "代码",
+    "description": "描述",
+    "type": "类型",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "details": "详情",
+    "members": "成员",
+    "member": "成员",
+    "leader": "负责人",
+    "role": "角色",
+    "roles": "角色",
+    "user": "用户",
+    "users": "用户",
+    "selectPlaceholder": "— 请选择 —",
+    "notAssigned": "—",
+    "openModule": "打开",
+    "noPermission": "无权限",
+    "needHigherPrivilege": "需要更高权限",
+    "saveFailed": "保存失败",
+    "deleteFailed": "删除失败",
+    "loadFailed": "加载失败",
+    "confirmDelete": "确认删除？",
+    "required": "*",
+    "all": "全部",
+    "filter": "过滤",
+    "reset": "重置",
+    "back": "返回"
+  },
+  "header": {
+    "admin": "系统管理",
+    "adminOrganizations": "系统管理 · 组织",
+    "adminProjects": "系统管理 · 工程项目",
+    "adminProjectHierarchy": "系统管理 · 项目层级",
+    "adminUsers": "系统管理 · 用户",
+    "adminRoles": "系统管理 · 角色与权限",
+    "adminTaskForces": "系统管理 · 工程项目组",
+    "adminAuditLogs": "系统管理 · 审计日志",
+    "instrumentDetail": "仪表详情",
+    "instrumentIndex": "仪表索引",
+    "loops": "回路",
+    "specifications": "规格书",
+    "wiring": "接线管理",
+    "status": "系统状态",
+    "settings": "设置",
+    "dashboard": "仪表盘",
+    "currentProject": "当前项目",
+    "noProject": "未选择项目",
+    "logout": "退出登录",
+    "language": "语言"
+  },
+  "sidebar": {
+    "dashboard": "仪表盘",
+    "instruments": "仪表索引",
+    "loops": "回路",
+    "specs": "规格书",
+    "wiring": "接线",
+    "status": "状态",
+    "admin": "系统管理",
+    "settings": "设置",
+    "collapse": "收起",
+    "expand": "展开"
+  },
+  "admin": {
+    "title": "系统管理",
+    "subtitle": "管理组织、用户、角色和项目权限",
+    "permissionsOverview": "权限概览",
+    "stat": {
+      "role": "角色",
+      "discipline": "专业",
+      "accessibleModules": "可访问模块"
+    },
+    "section": {
+      "systemAdminTitle": "系统管理",
+      "systemAdminDesc": "仅管理员可访问的系统级配置",
+      "projectsAndTeamTitle": "项目与团队",
+      "projectsAndTeamDesc": "管理员与项目工程师可访问的工程项目及项目组管理"
+    },
+    "tab": {
+      "overview": "总览",
+      "organizations": "组织",
+      "users": "用户",
+      "roles": "角色",
+      "auditLogs": "审计日志",
+      "projects": "工程项目",
+      "taskForces": "工程项目组"
+    },
+    "card": {
+      "organizationsTitle": "组织管理",
+      "organizationsDesc": "管理顶层多租户组织和子部门",
+      "projectsTitle": "工程项目",
+      "projectsDesc": "管理工程项目（每个项目 = 一个独立 Schema）",
+      "usersTitle": "用户管理",
+      "usersDesc": "创建、激活和分配用户角色",
+      "rolesTitle": "角色与权限",
+      "rolesDesc": "配置角色层级和权限矩阵",
+      "taskForcesTitle": "工程项目组",
+      "taskForcesDesc": "创建项目组、管理成员（PE 仅可管理本人创建的项目组）",
+      "auditLogsTitle": "审计日志",
+      "auditLogsDesc": "查看系统操作记录"
+    },
+    "badge": {
+      "adminOnly": "仅管理员",
+      "adminOrPe": "管理员/项目工程师",
+      "noPermission": "无权限"
+    },
+    "discipline": {
+      "instrumentation": "仪表",
+      "process": "工艺",
+      "mechanical": "机械/管道",
+      "generic": "通用"
+    },
+    "role": {
+      "unassigned": "未分配",
+      "administrator": "管理员"
+    },
+    "guard": {
+      "deniedTitle": "访问被拒绝",
+      "deniedBody": "您没有访问此页面的权限。",
+      "loginPrompt": "请先登录。"
+    }
+  },
+  "organizations": {
+    "title": "组织",
+    "description": "管理顶层多租户组织和子部门",
+    "createLabel": "新建组织",
+    "editTitle": "编辑组织",
+    "createTitle": "新建组织",
+    "editDescription": "更新组织详情",
+    "createDescription": "创建顶层组织或子部门",
+    "fields": {
+      "name": "名称",
+      "code": "代码",
+      "parent": "上级组织",
+      "description": "描述",
+      "isActive": "启用"
+    },
+    "parentNone": "— 顶层组织 —"
+  },
+  "users": {
+    "title": "用户",
+    "description": "管理系统用户、分配角色和组织",
+    "searchPlaceholder": "搜索用户名/邮箱/姓名",
+    "createLabel": "新建用户",
+    "editTitle": "编辑用户",
+    "createTitle": "新建用户",
+    "dialogDescription": "用户的基础信息和角色分配",
+    "passwordHintEdit": "（留空则不修改）",
+    "fields": {
+      "username": "用户名",
+      "email": "邮箱",
+      "fullName": "姓名",
+      "firstName": "名",
+      "lastName": "姓",
+      "phone": "电话",
+      "department": "部门",
+      "title": "职位",
+      "language": "语言",
+      "timezone": "时区",
+      "organization": "组织",
+      "role": "角色",
+      "password": "密码",
+      "passwordConfirm": "确认密码",
+      "isActive": "启用",
+      "isStaff": "员工",
+      "isSuperuser": "超级用户"
+    },
+    "columns": {
+      "username": "用户名",
+      "fullName": "姓名",
+      "email": "邮箱",
+      "role": "角色",
+      "organization": "组织",
+      "status": "状态"
+    },
+    "actions": {
+      "activate": "启用",
+      "deactivate": "禁用",
+      "toggleFailed": "操作失败"
+    },
+    "errors": {
+      "passwordMismatch": "两次输入的密码不一致",
+      "passwordRequired": "新建用户必须设置密码"
+    },
+    "selectPlaceholder": "— 未分配 —"
+  },
+  "roles": {
+    "title": "角色与权限",
+    "description": "配置角色层级（1-5）和模块权限矩阵",
+    "createLabel": "新建角色",
+    "editTitle": "编辑角色",
+    "createTitle": "新建角色",
+    "dialogDescription": "角色级别决定数据访问能力（5=管理员，1=访客）",
+    "selectOrgPlaceholder": "— 选择组织 —",
+    "fields": {
+      "code": "代码",
+      "name": "名称",
+      "level": "级别",
+      "displayOrder": "排序",
+      "organization": "组织",
+      "description": "描述",
+      "permissions": "权限矩阵 (JSON)",
+      "isActive": "启用"
+    },
+    "columns": {
+      "code": "代码",
+      "name": "名称",
+      "level": "级别",
+      "organization": "组织",
+      "type": "类型"
+    },
+    "type": {
+      "system": "系统",
+      "custom": "自定义"
+    },
+    "errors": {
+      "permissionsJson": "权限矩阵必须是合法 JSON",
+      "systemRoleProtected": "系统角色不能删除"
+    },
+    "levelOption": {
+      "5": "Level 5 - 管理员",
+      "4": "Level 4 - 项目经理 / 项目工程师",
+      "3": "Level 3 - 专业工程师",
+      "2": "Level 2 - 工程师",
+      "1": "Level 1 - 访客"
+    },
+    "level": {
+      "1": "访客",
+      "2": "工程师 L2",
+      "3": "工程师 L3",
+      "4": "项目工程师/经理",
+      "5": "管理员"
+    }
+  },
+  "projects": {
+    "title": "工程项目",
+    "description": "管理工程项目（每个项目对应独立的数据库 schema，物理隔离）",
+    "searchPlaceholder": "按编号、名称或组织搜索",
+    "createLabel": "新建项目",
+    "editTitle": "编辑工程项目",
+    "createTitle": "新建工程项目",
+    "createDescription": "创建项目将自动建立独立的数据库 schema，用于物理隔离该项目的所有工程数据",
+    "editDescription": "项目编号与 schema 创建后不可修改",
+    "submitCreate": "创建项目并建立 Schema",
+    "openHierarchyTitle": "管理层级（客户 / 站点 / 工厂）",
+    "deleteTitleAdmin": "删除（仅管理员）",
+    "deleteConfirm": "⚠️ 确认删除项目 \"{{projectNo}} - {{name}}\"？\n\n这将永久删除该项目的整个数据库 schema ({{schema}})，包括其下所有的工厂/区域/单元/位号/回路等工程数据，且无法恢复！",
+    "validation": {
+      "requiredFields": "项目编号、项目名称、所属组织 是必填项"
+    },
+    "schemaHint": "Schema 名将由项目编号生成（小写、下划线）",
+    "selectOrgPlaceholder": "选择组织",
+    "fields": {
+      "projectNo": "项目编号",
+      "name": "项目名称",
+      "schemaName": "Schema 名称",
+      "organization": "所属组织",
+      "description": "描述",
+      "status": "状态",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "createdAt": "创建时间"
+    },
+    "placeholder": {
+      "projectNo": "如 PRJ-2025-003",
+      "name": "如 LNG Receiving Terminal Project"
+    },
+    "columns": {
+      "projectNo": "项目编号",
+      "name": "项目名称",
+      "organization": "所属组织",
+      "schema": "Schema",
+      "status": "状态",
+      "dateRange": "起止日期"
+    },
+    "status": {
+      "ACTIVE": "进行中",
+      "ON_HOLD": "暂停",
+      "COMPLETED": "已完成",
+      "CANCELLED": "已取消"
+    }
+  },
+  "hierarchy": {
+    "title": "项目层级",
+    "subtitle": "客户 → 站点 → 工厂 → 区域 → 单元",
+    "back": "返回项目列表",
+    "loading": "加载项目层级中...",
+    "retry": "重试",
+    "projectNotFound": "项目不存在",
+    "noClientPlaceholder": "该项目下尚无客户，点击上方「新建客户」开始构建层级",
+    "stat": {
+      "organization": "组织",
+      "clients": "客户",
+      "sites": "站点",
+      "plants": "工厂",
+      "areas": "区域",
+      "units": "单元"
+    },
+    "meta": {
+      "siteCount": "{{count}} 个站点",
+      "noSites": "暂无站点",
+      "areaCount": "{{count}} 个区域",
+      "noAreas": "暂无区域",
+      "unitCount": "{{count}} 个单元",
+      "noUnits": "暂无单元",
+      "deactivated": "已停用"
+    },
+    "lazyPlantRoot": "首次在工厂 {{code}} 下创建区域，将自动创建对应的 PLANT 根节点",
+    "checkbox": { "isActive": "启用" },
+    "client": {
+      "section": "客户",
+      "create": "+ 新建客户",
+      "edit": "编辑客户",
+      "delete": "删除客户",
+      "newSite": "新建站点",
+      "createTitle": "新建客户",
+      "editTitle": "编辑客户",
+      "description": "客户是项目层级的顶层，代表业主或最终用户",
+      "fields": {
+        "code": "代码",
+        "name": "名称",
+        "contactPerson": "联系人",
+        "contactEmail": "邮箱",
+        "contactPhone": "电话",
+        "address": "地址"
+      },
+      "placeholder": { "code": "如 SINOPEC" },
+      "constraint": "一个工程项目对应一个客户。"
+    },
+    "site": {
+      "section": "站点",
+      "create": "新建站点",
+      "edit": "编辑站点",
+      "delete": "删除站点",
+      "newPlant": "新建工厂",
+      "createTitle": "新建站点",
+      "editTitle": "编辑站点",
+      "description": "站点是客户下的物理位置（厂区）",
+      "fields": {
+        "code": "代码",
+        "name": "名称",
+        "location": "位置",
+        "timezone": "时区",
+        "address": "详细地址"
+      },
+      "placeholder": {
+        "code": "如 ZH",
+        "location": "如 浙江省宁波市镇海区"
+      }
+    },
+    "plant": {
+      "section": "工厂",
+      "create": "新建工厂",
+      "edit": "编辑工厂",
+      "delete": "删除工厂",
+      "newArea": "新建区域",
+      "createTitle": "新建工厂",
+      "editTitle": "编辑工厂",
+      "description": "工厂是站点下的生产装置/单元",
+      "fields": {
+        "code": "代码",
+        "name": "名称",
+        "capacity": "产能",
+        "description": "描述"
+      },
+      "placeholder": {
+        "code": "如 ETH",
+        "capacity": "如 1000 KTPA"
+      }
+    },
+    "area": {
+      "section": "区域",
+      "create": "新建区域",
+      "edit": "编辑区域",
+      "delete": "删除区域",
+      "newUnit": "新建单元",
+      "createTitle": "新建区域",
+      "editTitle": "编辑区域",
+      "description": "区域是工厂内部的功能区域（MPTT 中间层），如裂解区/分离区/公用区",
+      "placeholder": { "code": "如 A100" }
+    },
+    "unit": {
+      "section": "单元",
+      "create": "新建单元",
+      "edit": "编辑单元",
+      "delete": "删除单元",
+      "createTitle": "新建单元",
+      "editTitle": "编辑单元",
+      "description": "单元是区域下的最小生产单元（MPTT 叶子层），仪表位号必须属于某个单元",
+      "placeholder": { "code": "如 U100" }
+    },
+    "deleteConfirm": "确认删除{{label}} \"{{code}} - {{name}}\"？\n\n其下级（{{cascade}}）将被级联删除，且无法恢复！",
+    "labels": {
+      "client": "客户",
+      "site": "站点",
+      "plant": "工厂",
+      "area": "区域",
+      "unit": "单元"
+    },
+    "cascade": {
+      "client": "所有站点与工厂",
+      "site": "所有工厂",
+      "plant": "关联数据",
+      "area": "该区域下的所有单元与位号",
+      "unit": "该单元下的所有位号与回路"
+    }
+  },
+  "taskforce": {
+    "title": "工程项目组",
+    "descriptionAdmin": "集中管理所有项目下的项目组。搜索支持项目编号/名称以及项目组代码/名称",
+    "descriptionPe": "项目工程师只能管理自己创建的项目组",
+    "createLabel": "新建项目组",
+    "editTitle": "编辑项目组",
+    "createTitle": "新建项目组",
+    "createDescAdmin": "管理员：可基于任何项目号或独立创建项目组",
+    "createDescPe": "项目工程师必须基于工程项目号创建项目组",
+    "searchPlaceholder": "按项目编号/名称或项目组代码/名称搜索",
+    "columns": {
+      "project": "所属项目",
+      "code": "代码",
+      "name": "名称",
+      "leader": "负责人",
+      "createdBy": "创建者"
+    },
+    "fields": {
+      "project": "关联工程项目",
+      "code": "代码",
+      "name": "名称",
+      "description": "描述",
+      "leader": "负责人",
+      "isActive": "启用"
+    },
+    "projectLockedHint": "项目关联在创建后不可修改",
+    "selectProjectPlaceholder": "— 选择工程项目 —",
+    "noLeader": "未分配",
+    "errors": {
+      "selectProject": "请选择关联的工程项目",
+      "duplicateCode": "保存失败：代码 \"{{code}}\" 已存在于 {{project}} 下，请换一个代码（每个项目内代码必须唯一）。",
+      "unknownProject": "(未知项目 #{{id}})",
+      "removeFailed": "移除失败",
+      "deleteFailed": "删除失败"
+    },
+    "members": {
+      "title": "项目组 \"{{name}}\" 成员",
+      "pageTitle": "项目组成员管理",
+      "back": "返回项目组列表",
+      "taskForceNotFound": "项目组不存在",
+      "addTitle": "添加成员",
+      "selectUser": "— 选择用户 —",
+      "roleLabel": "组内角色",
+      "addLabel": "添加",
+      "removeLabel": "移除",
+      "removeConfirm": "确认从项目组中移除该成员？",
+      "deleteConfirm": "确认删除项目组 \"{{name}}\"？",
+      "manageTitle": "成员管理",
+      "stat": {
+        "total": "成员总数",
+        "leads": "Lead",
+        "reviewers": "Reviewer",
+        "members": "Member"
+      },
+      "roleOptions": {
+        "member": "成员",
+        "lead": "组长",
+        "reviewer": "审核人"
+      },
+      "noMembers": "暂无成员",
+      "addedAt": "加入时间"
+    },
+    "createdByMe": "我创建"
+  },
+  "auditLogs": {
+    "title": "审计日志",
+    "description": "系统操作记录（只读）",
+    "systemUser": "系统",
+    "columns": {
+      "timestamp": "时间",
+      "user": "用户",
+      "action": "操作",
+      "model": "模型",
+      "object": "对象",
+      "ipAddress": "IP",
+      "details": "详情"
+    },
+    "filters": {
+      "user": "用户",
+      "action": "操作",
+      "from": "起始",
+      "to": "截止"
+    }
+  },
+  "dialog": {
+    "close": "关闭"
+  },
+  "table": {
+    "noData": "暂无数据",
+    "loading": "加载中...",
+    "resetColumnWidth": "重置列宽"
+  },
+  "dashboard": {
+    "title": "仪表板",
+    "welcome": "欢迎使用 OpenInstrument — 基于 AI 的仪表工程设计平台",
+    "card": {
+      "apiStatus": "API 状态",
+      "database": "数据库",
+      "cache": "缓存",
+      "healthCheck": "健康检查",
+      "quickStart": "快速开始",
+      "quickStartDesc": "快速上手 OpenInstrument",
+      "systemInfo": "系统信息",
+      "systemInfoDesc": "后端 API 连接详情"
+    },
+    "badge": {
+      "connected": "已连接",
+      "error": "错误",
+      "unknown": "未知",
+      "offline": "离线",
+      "checking": "检查中...",
+      "failed": "失败",
+      "passed": "通过"
+    },
+    "loading": "加载中...",
+    "version": "版本：{{version}}",
+    "autoRefresh": "自动刷新：30 秒",
+    "errorConnect": "无法连接到后端 API",
+    "quickStep": {
+      "hierarchy": "1. 配置工厂层级",
+      "hierarchyDesc": "定义工厂、区域和单元结构",
+      "tags": "2. 创建仪表位号",
+      "tagsDesc": "将仪表添加到仪表索引",
+      "loops": "3. 配置控制回路",
+      "loopsDesc": "将仪表组织为控制回路"
+    },
+    "info": {
+      "apiEndpoint": "API 入口",
+      "healthCheck": "健康检查",
+      "apiDocs": "API 文档",
+      "backendPort": "后端端口",
+      "frontendPort": "前端端口"
+    }
+  },
+  "statusPage": {
+    "title": "系统状态",
+    "subtitle": "监控所有系统组件的健康状况",
+    "refresh": "刷新",
+    "lastChecked": "最后检查：{{time}}",
+    "connectionError": "连接错误",
+    "errorDetail": "请确认后端服务运行在 8000 端口",
+    "errorConnect": "无法连接到后端 API",
+    "badge": {
+      "healthy": "健康",
+      "error": "错误",
+      "unknown": "未知",
+      "offline": "离线",
+      "checking": "检查中..."
+    },
+    "card": {
+      "apiServer": "API 服务",
+      "apiServerDesc": "Django REST Framework",
+      "database": "数据库",
+      "databaseDesc": "PostgreSQL 16",
+      "cache": "缓存",
+      "cacheDesc": "Redis 7"
+    },
+    "field": {
+      "status": "状态",
+      "version": "版本",
+      "port": "端口"
+    }
+  },
+  "login": {
+    "subtitle": "基于 AI 的仪表工程设计平台",
+    "username": "用户名",
+    "password": "密码",
+    "usernamePlaceholder": "请输入用户名",
+    "passwordPlaceholder": "请输入密码",
+    "signIn": "登录",
+    "signingIn": "登录中...",
+    "failed": "登录失败，请检查您的凭证",
+    "demoAccounts": "演示账号",
+    "footer": "© 2025 OpenInstrument. 基于 AGPL-3.0 开源发布"
+  },
+  "instruments": {
+    "title": "仪表索引",
+    "subtitle": "管理仪表位号及其规格",
+    "refresh": "刷新",
+    "export": "导出",
+    "newTag": "新建位号",
+    "searchPlaceholder": "搜索位号...",
+    "filters": "筛选",
+    "selected": "已选 {{count}} 项",
+    "bulkEdit": "批量编辑",
+    "deleteSelected": "删除所选",
+    "emptyTitle": "尚无仪表数据",
+    "emptyDesc": "从创建第一个仪表位号开始。",
+    "createTag": "创建位号",
+    "tryAgain": "重试",
+    "loadFailed": "数据加载失败",
+    "columns": {
+      "tagNumber": "位号",
+      "service": "用途",
+      "status": "状态",
+      "revision": "版次",
+      "description": "描述",
+      "lastUpdated": "最后更新"
+    },
+    "status": {
+      "ACTIVE": "已启用",
+      "INACTIVE": "已停用",
+      "PENDING": "待处理",
+      "UNDER_REVIEW": "审核中",
+      "DELETED": "已删除"
+    },
+    "action": {
+      "view": "查看",
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "pagination": {
+      "showing": "显示第 {{from}} - {{to}} 条，共 {{total}} 条",
+      "previous": "上一页",
+      "next": "下一页"
+    }
+  },
+  "tagDetail": {
+    "back": "返回仪表列表",
+    "notFound": "位号不存在",
+    "loadFailed": "位号加载失败",
+    "saveFailed": "保存失败",
+    "noService": "无用途描述",
+    "revision": "版次 {{n}}",
+    "action": {
+      "history": "历史",
+      "duplicate": "复制",
+      "save": "保存"
+    },
+    "section": {
+      "basicInfo": "基础信息",
+      "rawSpec": "原始规格数据"
+    },
+    "fields": {
+      "tagNumber": "位号",
+      "serviceDescription": "用途描述",
+      "description": "描述",
+      "fullTag": "完整位号"
+    },
+    "group": {
+      "general": "通用",
+      "process": "过程",
+      "performance": "性能",
+      "electrical": "电气",
+      "mechanical": "机械",
+      "other": "其他"
+    },
+    "field": {
+      "manufacturer": "制造商",
+      "model": "型号",
+      "rangeMin": "量程下限",
+      "rangeMax": "量程上限",
+      "rangeUnit": "量程单位",
+      "accuracy": "精度",
+      "outputSignal": "输出信号",
+      "powerSupply": "电源",
+      "enclosureRating": "防护等级",
+      "processConnection": "过程连接",
+      "wettedMaterial": "接液材质",
+      "notes": "备注"
+    },
+    "selectPlaceholder": "请选择...",
+    "yes": "是",
+    "unsavedChanges": "有未保存更改"
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "应用偏好与用户个性化配置",
+    "tab": {
+      "general": "通用",
+      "account": "账户",
+      "notifications": "通知",
+      "advanced": "高级"
+    },
+    "language": {
+      "title": "界面语言",
+      "description": "选择菜单、对话框和消息的显示语言。切换立即生效，并在后续访问中保持。",
+      "label": "语言",
+      "current": "当前：{{lang}}",
+      "applied": "语言已切换为 {{lang}}"
+    },
+    "placeholder": {
+      "account": "账户设置（密码 / 资料）— 功能开发中",
+      "notifications": "通知偏好 — 功能开发中",
+      "advanced": "高级选项 — 功能开发中"
+    }
+  }
+}

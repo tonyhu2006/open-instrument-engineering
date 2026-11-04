@@ -1,5 +1,15 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { projectApi, clientApi, siteApi, plantApi, type Project, type Client, type Site, type Plant } from '@/lib/api'
+import {
+  projectApi,
+  clientApi,
+  siteApi,
+  plantApi,
+  setCurrentProject,
+  type Project,
+  type Client,
+  type Site,
+  type Plant,
+} from '@/lib/api'
 
 interface HierarchyState {
   // Data
@@ -53,8 +63,10 @@ export function HierarchyProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Load clients when project changes
+  // Load clients when project changes; also sync the X-Project-ID header
+  // so subsequent tenant-aware API calls hit the correct schema.
   useEffect(() => {
+    setCurrentProject(selectedProject ? selectedProject.id : null)
     if (selectedProject) {
       loadClients(selectedProject.id)
     } else {
