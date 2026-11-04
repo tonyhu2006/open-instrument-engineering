@@ -416,3 +416,22 @@ ProjectMembership 自项目改用 `ProjectTaskForce + TaskForceMembership` 体�
 - V4 `spectacular --validate`：0 errors（6 条类型提示/enum 命名 warning 待后续处理）✅
 - V5 `npm run lint` 0 problems；`npm run build` 成功 ✅
 - V3/V6：仓库暂无后端测试，未执行。
+
+---
+
+## 2026-11-04（后续）— OpenAPI warning 清零 + V6 租户隔离测试 + 工程 API 越权修复
+
+**触发指令**：处理剩余 OpenAPI warning（补类型提示和 enum 命名配置），并补上租户隔离测试（V6）。
+
+### 操作
+- 修改：`apps/administration/serializers.py`（`get_full_name -> str`、`get_member_count -> int`）、`apps/tenants/serializers.py`（`get_organization_name -> str | None`）。
+- 修改：`config/settings.py` `SPECTACULAR_SETTINGS.ENUM_NAME_OVERRIDES`：`ProjectStatusEnum` / `TagStatusEnum`。
+- 添加：`backend/pyproject.toml` `[tool.pytest.ini_options]`；`backend/tests/conftest.py`（会话级创建 ISO-A/ISO-B 两个真实租户 schema）；`backend/tests/test_tenant_isolation.py`（19 个用例：schema 数据隔离、硬性规则 1/2 静态契约、X-Project-ID 路由、JWT/Session/匿名三条访问路径）。
+- **安全修复**：V6 首次运行 4 个用例失败——`apps/core_engineering/views.py` 8 个 ViewSet 以 `permission_classes = [AllowAny]` 覆盖了全局默认权限，`TenantContextMiddleware` 只覆盖 session 认证，导致 JWT/匿名请求伪造 `X-Project-ID` 即可跨项目读写（违反 SPECIFICATION §3.1.0.5.6）。经用户确认删除 8 处覆盖，回落到 `IsAuthenticated + IsProjectMemberOrPublicSchema`。影响：未登录访问 `/api/engineering/*` 现返回 401。
+- 添加：`docs/OPEN_QUESTIONS.md` OQ-001（AGENTS.md V6 命令路径与 uv 工作目录不一致）。
+
+### 验证
+- V2 ruff / black 全绿 ✅；`manage.py check` 无问题 ✅
+- V4 `spectacular --validate --fail-on-warn`：0 errors / 0 warnings ✅
+- V6 `uv run --directory backend pytest tests/test_tenant_isolation.py -x`：修复前 4 failed / 15 passed，修复后 19 passed ✅
+- 开发库无 `ISO-*` 残留（测试仅使用 pytest 的 test_ 数据库）✅
