@@ -1,8 +1,9 @@
 # OpenInstrument 开发路线图
 
-> **版本**: 0.2.17  
+> **版本**: 0.2.19  
 > **创建日期**: 2025-12-24  
-> **总体完成度**: ~17%
+> **最后更新**: 2026-04-26  
+> **总体完成度**: ~23%
 
 ---
 
@@ -24,27 +25,52 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| PlantHierarchy (MPTT) | ✅ | Plant → Area → Unit 三级架构 |
-| InstrumentType | ✅ | JSON Schema 模板验证 |
+| PlantHierarchy (MPTT) | ✅ | Plant → Area → Unit 三级架构（租户数据） |
+| InstrumentType | ✅ | JSON Schema 模板验证（租户数据） |
 | Tag 模型 | ✅ | Unit 级唯一约束, 版本号自动递增 |
 | Loop 模型 | ✅ | 控制回路 |
 | Tag/Loop/InstrumentType API | ✅ | CRUD + bulk_update + search |
-| 演示数据命令 | ✅ | seed_demo_data |
+| 演示数据命令 | ✅ | seed_demo_data / seed_demo_project |
+
+### 3. 多租户架构 ✅ (Schema 隔离)
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| django-tenants 集成 | ✅ | PostgreSQL Schema 级隔离 |
+| ProjectTenant / ProjectDomain | ✅ | 租户元数据与域名映射 |
+| HeaderBasedTenantMiddleware | ✅ | `X-Project-ID` Header 切换 schema |
+| SHARED_APPS / TENANT_APPS | ✅ | 公共与租户应用分离 |
+| 租户 API | ✅ | `/api/tenants/projects/` |
+| 前端租户切换 | ✅ | HierarchyContext + localStorage |
+| 双租户隔离验证 | ✅ | `prj_2025_001` / `prj_2025_002` 物理隔离 |
 
 ---
 
 ## 二、未实现功能清单 (按模块分类)
 
-### 模块 1.1 - 管理模块 (Administration) - 完成度 25%
+### 模块 1.1 - 管理模块 (Administration) - 完成度 75%
+
+**已实现 (详 IMPLEMENTATION.md §2):**
+- [x] RBAC 角色系统 (Role + display_order, 7 个预置系统角色含 PM/PE)
+- [x] 用户认证 (JWT 登录/登出/刷新、/me/ 接口)
+- [x] 工程项目组 (ProjectTaskForce + TaskForceMembership + 创建者隔离权限)
+- [x] 项目层级 (Project → Client → Site → Plant) 及多租户物理隔离验证
+- [x] 用户管理 UI (UsersPage)、角色管理 UI (RolesPage)、项目组 UI (TaskForcesPage)
+- [x] 组织管理 UI (OrganizationsPage)、审计日志 UI
+- [x] **2026-04-26 管理后台前端打磨** (详 IMPLEMENTATION.md §2.0.3)：
+  - 项目级 Membership 概念前端弃用，`/admin/memberships` 页面下线
+  - Admin Dashboard 三段式分组（权限概览 / 系统管理 / 项目与团队）
+  - AdminLayout 标签栏与 Dashboard 分组对齐
+  - TaskForce 集中管理（跨项目列表 + 「所属项目」列 + 关联项目必填）
+  - ProjectHierarchy "一项目一客户" 业务约束（按钮智能切换）
+  - AdminTable 通用列宽拖拽、Dialog 收紧关闭行为
+  - CSRF/CORS 本地开发端口通配（修复 Windsurf 浏览器预览代理）
 
 **未实现:**
-- [ ] RBAC 角色系统 (Role, Permission 模型)
-- [ ] 用户认证 (登录/登出/Token 刷新)
-- [ ] 工程项目组 (Project Task Force)
-- [ ] 命名规则 (NamingConvention)
-- [ ] 项目层级 (Project → Client → Site → Plant)
-- [ ] 工厂层级 UI (树形组件)
-- [ ] 用户管理 UI
+- [ ] 命名规则 (NamingConvention) UI / 自定义正则编辑器
+- [ ] 工厂层级 UI 中的可视化树编辑 (只读树已有)
+- [ ] 项目创建向导 UI (选择层级模板)
+- [ ] 二要素身份认证 (2FA) / 密码重置邮件
 
 ### 模块 1.2 - 仪表索引 (Instrument Index) - 完成度 60%
 
@@ -160,30 +186,34 @@
 
 > **目标**: 建立多租户、认证授权、命名规则等企业级基础能力
 
-#### Sprint 3.1: 多租户与项目层级 (1 周)
+#### Sprint 3.1: 多租户与项目层级 (1 周) ✅ 完成
 
-| 优先级 | 任务 | 依赖 | 工作量 |
-|--------|------|------|--------|
-| P0 | Organization 模型 | - | 2h |
-| P0 | Project 模型 (顶层) | Organization | 4h |
-| P0 | Client 模型 | Project | 2h |
-| P0 | Site 模型 | Client | 2h |
-| P0 | 更新 Plant 模型关联 Site | Site | 2h |
-| P1 | 层级结构配置 (hierarchy_config) | Project | 4h |
-| P1 | 层级模板 (standard/simple/custom) | - | 2h |
-| P1 | 项目层级 API | 所有模型 | 8h |
+| 优先级 | 任务 | 依赖 | 工作量 | 状态 |
+|--------|------|------|--------|------|
+| P0 | Organization 模型（公共 schema） | - | 2h | ✅ |
+| P0 | ProjectTenant 模型（django-tenants TenantMixin） | Organization | 4h | ✅ |
+| P0 | ProjectDomain 模型 | ProjectTenant | 2h | ✅ |
+| P0 | Client 模型（租户 schema） | 租户初始化 | 2h | ✅ |
+| P0 | Site 模型（租户 schema） | Client | 2h | ✅ |
+| P0 | Plant 模型关联 Site（租户 schema） | Site | 2h | ✅ |
+| P0 | HeaderBasedTenantMiddleware | 中间件栈 | 4h | ✅ |
+| P0 | SHARED_APPS / TENANT_APPS 配置 | Django settings | 2h | ✅ |
+| P1 | 层级结构配置 (hierarchy_config) | ProjectTenant | 4h | ✅ |
+| P1 | 层级模板 (standard/simple/custom) | - | 2h | 📋 |
+| P1 | 项目层级 API（含租户路由） | 所有模型 | 8h | ✅ |
 
-**交付物**: 完整的项目层级数据模型和 API
+**交付物**: 完整的多租户 Schema 隔离架构 + 项目层级数据模型与 API
+**验证**: 通过 `seed_demo_project` 创建第 2 个租户 (`prj_2025_002`)，确认与 `prj_2025_001` 数据物理隔离
 
-#### Sprint 3.2: 用户认证与 RBAC (1 周)
+#### Sprint 3.2: 用户认证与 RBAC (1 周) ✅ 完成
 
-| 优先级 | 任务 | 依赖 | 工作量 |
-|--------|------|------|--------|
-| P0 | User 模型扩展 (AbstractUser) | - | 4h |
-| P0 | Role 模型 (5 级角色) | - | 4h |
-| P0 | Permission 模型 | Role | 4h |
-| P0 | UserProjectRole 关联 | User, Role, Project | 4h |
-| P0 | 登录/登出 API | User | 4h |
+| 优先级 | 任务 | 依赖 | 工作量 | 状态 |
+|--------|------|------|--------|------|
+| P0 | User 模型扩展 (AbstractUser) | - | 4h | ✅ |
+| P0 | Role 模型 (层级化 + display_order) | - | 4h | ✅ |
+| P0 | Permission 模型化为资源粒度 JSON | Role | 4h | ✅ |
+| P0 | ProjectMembership 关联 | User, Role, Project | 4h | ✅ |
+| P0 | 登录/登出 API (JWT) | User | 4h | ✅ |
 | P0 | Token 刷新 API | - | 2h |
 | P1 | 权限检查装饰器 | Permission | 4h |
 | P1 | 登录页面 UI | 登录 API | 8h |

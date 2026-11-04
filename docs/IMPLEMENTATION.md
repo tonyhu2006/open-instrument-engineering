@@ -1,8 +1,8 @@
 # OpenInstrument - 实现状态跟踪
 
-> **版本**: 0.3.0  
-> **最后更新**: 2025-12-25  
-> **开发阶段**: 多租户架构实现  
+> **版本**: 0.3.1  
+> **最后更新**: 2026-04-26  
+> **开发阶段**: 多租户架构实现 + 管理后台前端打磨  
 > **对标产品**: Hexagon SmartPlant Instrumentation (SPI)
 
 ---
@@ -11,7 +11,7 @@
 
 | 模块 | SPI 功能 | 完成度 | 状态 |
 |------|----------|--------|------|
-| 1.1 | Administration (管理模块) | 25% | 🚧 |
+| 1.1 | Administration (管理模块) | 75% | 🚧 |
 | 1.2 | Instrument Index (仪表索引) | 60% | 🚧 |
 | 1.3 | Engineering Data Editor (EDE) | 5% | 📋 |
 | 1.4 | Specifications (规格书) | 5% | 📋 |
@@ -116,30 +116,37 @@
 
 ## 2. SPI 模块 1.1 - 管理模块 (Administration)
 
-> **完成度**: 70%
+> **完成度**: 75%
 
 ### 2.0 基于角色的用户管理系统 (RBAC)
 
 | 功能 | 状态 | 完成日期 | 备注 |
 |------|------|----------|------|
-| Role 模型 | ✅ | 2025-12-25 | 5 级角色层级 |
+| Role 模型 | ✅ | 2025-12-25 | 多组织多角色、层级化 |
+| Role.display_order 字段 | ✅ | 2026-04-25 | 同级角色排序 tie-breaker |
 | User 模型扩展 | ✅ | 2025-12-25 | AbstractUser + organization + role |
 | 角色层级 (Level 1-5) | ✅ | 2025-12-25 | Guest → Admin |
-| 数据权限矩阵 | ✅ | 2025-12-25 | JSONField permissions |
-| 角色管理 API | ✅ | 2025-12-25 | CRUD |
+| Project Manager 角色 | ✅ | 2026-04-25 | Level 4，与 PE 同权，列表排在 PE 之前 |
+| 数据权限矩阵 | ✅ | 2025-12-25 | JSONField permissions 按资源粒度 |
+| 角色管理 API | ✅ | 2025-12-25 | CRUD，ordering = -level/display_order/name |
 | 用户管理 API | ✅ | 2025-12-25 | CRUD + activate/deactivate + me |
-| 角色管理 UI | 📋 | - | Administrator only |
-| 用户管理 UI | 📋 | - | Administrator only |
+| 用户创建 password_confirm | ✅ | 2026-04-25 | DRF 双密码校验 |
+| 角色管理 UI | ✅ | 2026-04-25 | RolesPage (列表/创建/编辑/删除) |
+| 用户管理 UI | ✅ | 2026-04-25 | UsersPage，编辑时拉取完整账号详情 |
+| seed_rbac 幂等指令 | ✅ | 2025-12-25 | 可重复运行预置所有系统角色 |
 
-**角色层级:**
+**角色层级 (当前预置系统角色 × 7):**
 ```
 Level 5: Administrator (系统管理员) - 系统最高权限
-Level 4: Project Engineer (项目工程师) - 项目全专业权限
+Level 4: Project Manager (项目经理)   - 项目全专业权限 ↑排在 PE 之前
+Level 4: Project Engineer (项目工程师) - 项目全专业权限、与 PM 同权
 Level 3: Instrumentation Engineer - 仪表专业数据 CRUD
 Level 3: Process Engineer - 工艺专业数据 CRUD
 Level 3: Mechanical Engineer - 机械/管道专业数据 CRUD
 Level 1: Guest (访客) - 所有数据只读
 ```
+
+> Level 4 的两个角色权限矩阵完全一致（由 `_permissions_for()` 同一分支产生），区分仅在于业务定位：PM 负责进度/资源/商务协调，PE 负责技术执行。Project Manager 在角色列表中排在 Project Engineer 之前（`Role.display_order` 控制，PM=20、PE=30）。
 
 ### 2.0.1 工程项目组 (Project Task Force)
 
@@ -148,10 +155,10 @@ Level 1: Guest (访客) - 所有数据只读
 | ProjectTaskForce 模型 | ✅ | 2025-12-25 | 项目组 |
 | TaskForceMembership 模型 | ✅ | 2025-12-25 | 成员关系 |
 | 项目组创建 (Admin) | ✅ | 2025-12-25 | API 支持 |
-| 项目组创建 (PE) | ✅ | 2025-12-25 | API 支持 |
+| 项目组创建 (PM/PE) | ✅ | 2025-12-25 | API 支持，TaskForcePermission 校验创建者 |
 | 成员管理 API | ✅ | 2025-12-25 | add_member/remove_member |
-| 项目组权限隔离 | 📋 | - | 不可互访 |
-| 项目组管理 UI | 📋 | - | |
+| 项目组权限隔离 | ✅ | 2026-04-25 | 基于 django-tenants 物理 schema 隔离验证成功 |
+| 项目组管理 UI | ✅ | 2026-04-25 | TaskForcesPage |
 
 **项目组创建规则:**
 ```
@@ -160,10 +167,104 @@ Administrator:
   - 方式二: 基于工程项目号创建项目组
   - 可将任何用户加入/移除任何项目组
 
-Project Engineer:
+Project Manager / Project Engineer:
   - 只能基于工程项目号创建项目组
   - 只能管理自己创建的项目组成员
+  - PM 与 PE 权限一致（同 Level 4）
 ```
+
+### 2.0.2 多租户 Schema 隔离验证 (2026-04-25)
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| ProjectTenant 自动创建 schema | ✅ | 2025-12-25 | django-tenants TenantMixin |
+| HeaderBasedTenantMiddleware | ✅ | 2025-12-25 | X-Project-ID 切换 schema |
+| 前端 setCurrentProject 同步 | ✅ | 2026-04-25 | HierarchyContext 同步头部 |
+| seed_demo_project 指令 | ✅ | 2026-04-25 | 创建第 2 个租户验证隔离 |
+| 两租户数据物理隔离 | ✅ | 2026-04-25 | prj_2025_001 / prj_2025_002 |
+
+### 2.0.3 管理后台前端 UI 打磨 (2026-04-26)
+
+本轮 session 集中优化系统管理与工程项目管理的前端体验，并对**项目级成员（ProjectMembership）**模块做了一次架构精简。
+
+#### 架构变更
+
+| 变更 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| **`/admin/memberships` 页面下线** | ✅ | 2026-04-26 | 项目级 Membership 概念前端弃用：用户通过加入「工程项目组」获得项目访问权 |
+| 删除 `MembershipsPage.tsx` 与相关路由 | ✅ | 2026-04-26 | 同步清理 `App.tsx` / `AdminLayout` / `AdminDashboard` / `Header` / `usePermissions` 中的入口 |
+| 后端 `ProjectMembership` 模型/视图/API | ⏸ 保留 | - | 暂不删除，作为远期废弃路径；前端已无引用 |
+| `usePermissions.canManageMemberships` | ✅ 移除 | 2026-04-26 | 不再暴露给前端 |
+| `lib/api.ts` 中 `membershipApi` | ⏸ 保留 | - | 无引用，保留待清理 |
+
+#### Admin Dashboard / Layout 改进
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| Dashboard 三段式分组布局 | ✅ | 2026-04-26 | 上：权限概览；中：系统管理（仅管理员）；下：项目与团队（PM/PE+） |
+| `ModuleSection` 抽象组件 | ✅ | 2026-04-26 | 按 `required` 字段分流卡片，复用样式 |
+| AdminLayout 标签栏重排 | ✅ | 2026-04-26 | 顺序：总览 → 组织 → 用户 → 角色 → 审计日志 → 工程项目 → 工程项目组（与 Dashboard 分组对齐） |
+
+#### 工程项目组 (TaskForce) 前端集中管理
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| 列表跨项目集中展示 | ✅ | 2026-04-26 | 取消按 `selectedProject` 过滤，加载所有项目下的项目组 |
+| 「所属项目」表格列 | ✅ | 2026-04-26 | 双行展示：项目编号 + 项目名称 |
+| 搜索覆盖项目编号/名称 | ✅ | 2026-04-26 | 项目组代码/名称 + 项目编号/名称四字段联合 |
+| 编辑对话框必填「关联工程项目」 | ✅ | 2026-04-26 | 管理员可任选；非管理员锁定为当前导航项目；编辑模式下整列禁用（关联不可改） |
+| `(project_id, code)` 唯一冲突中文提示 | ✅ | 2026-04-26 | 命中时给出友好提示，告知所选项目下代码已存在 |
+
+#### 工程项目层级 (ProjectHierarchy) 改进
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| 客户区按钮智能切换 | ✅ | 2026-04-26 | 项目下无客户 → 「+新建客户」；已有客户 → 「编辑客户」 |
+| 体现"一项目一客户"业务约束 | ✅ | 2026-04-26 | 强制单客户模型，避免误建多客户 |
+
+#### 通用 UI 组件打磨
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| `AdminTable` 列宽可拖拽调整 | ✅ | 2026-04-26 | 表头分隔线鼠标拖拽改变列宽，双击重置；最小 60px；`<colgroup>` + `tableLayout: fixed` 实现 |
+| `Dialog` 关闭行为收紧 | ✅ | 2026-04-26 | 新增 `dismissable` prop，默认 `false`：点击遮罩 / Esc / X 按钮均不关闭，仅显式按钮（取消/确认）触发；可加 `dismissable` 属性恢复旧行为 |
+
+#### 后端 / 配置
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| CSRF 信任本地通配 origin | ✅ | 2026-04-26 | `CSRF_TRUSTED_ORIGINS` 加入 `http://localhost:*` 与 `http://127.0.0.1:*`，覆盖 Vite 5173 与 Windsurf 浏览器预览随机端口 |
+| CORS 正则放开本地端口 | ✅ | 2026-04-26 | `CORS_ALLOWED_ORIGIN_REGEXES` 同步加 localhost / 127.0.0.1 端口通配 |
+
+### 2.0.4 国际化 i18n 框架 (2026-04-26)
+
+按 SPECIFICATION.md §3.9 要求，**英语为主语言**：源代码内不得出现中文等非英文字符串。系统管理与工程项目管理两大模块完成 i18n 改造，所有 UI 字符串走 `t('key')` 调用。
+
+| 功能 | 状态 | 完成日期 | 备注 |
+|------|------|----------|------|
+| `i18next` + `react-i18next` + `i18next-browser-languagedetector` 集成 | ✅ | 2026-04-26 | 默认语言 `en-US`，本地 `localStorage('openinstrument.lang')` 持久化 |
+| `src/i18n/index.ts` 配置 | ✅ | 2026-04-26 | 公开 `SUPPORTED_LANGUAGES` / `DEFAULT_LANGUAGE` |
+| `src/i18n/locales/en-US.json`（主语言） | ✅ | 2026-04-26 | 完整英文 UI 字符串 |
+| `src/i18n/locales/zh-CN.json`（占位语言包） | ✅ | 2026-04-26 | 镜像 en-US 键，中文翻译，未来切换语言时直接生效 |
+| `tsconfig.app.json` 加 `resolveJsonModule: true` | ✅ | 2026-04-26 | 支持 JSON 直接 import |
+| `main.tsx` 引入 `./i18n` | ✅ | 2026-04-26 | 应用启动时初始化 |
+| AdminLayout / AdminDashboard 迁移 | ✅ | 2026-04-26 | tab、卡片、统计、徽标、专业标签全部 i18n |
+| TaskForcesPage 迁移 | ✅ | 2026-04-26 | 列表、对话框、错误提示、成员管理全部 i18n |
+| ProjectHierarchyPage 迁移 | ✅ | 2026-04-26 | Client/Site/Plant/Area/Unit 各层级动态 key（`hierarchy.${type}.*`） |
+| ProjectsPage 迁移 | ✅ | 2026-04-26 | 状态枚举、占位符、级联删除提示全部 i18n |
+| UsersPage 迁移 | ✅ | 2026-04-26 | 双密码校验文案、角色/组织选择 i18n |
+| RolesPage 迁移 | ✅ | 2026-04-26 | 系统角色保护提示、JSON 校验提示 i18n |
+| OrganizationsPage 迁移 | ✅ | 2026-04-26 | 完整对话框 i18n |
+| AuditLogsPage 迁移 | ✅ | 2026-04-26 | 时间戳本地化 (`toLocaleString(i18n.language)`) |
+| AdminTable / AdminPageHeader / RoleGuard / Header / Dialog / ResizableSidebar 共享组件 | ✅ | 2026-04-26 | t() 缺省回退 + 注释/title 全英文化 |
+| TypeScript 编译校验 | ✅ | 2026-04-26 | `npx tsc -b --noEmit` 通过零错误 |
+| Admin 模块剩余中文字符 grep | ✅ | 2026-04-26 | 0 处（全部走 i18n） |
+
+**未来工作 (out of scope)**:
+- 仪表索引 (`/instruments`) / Dashboard / 状态页等仪表数据相关页面尚未 i18n（用户输入数据按 §3.9 规则不翻译，但页面 UI 文案需后续 i18n 化）
+- 用户偏好设置面板（语言切换 UI）尚未实现 — 当前可通过浏览器语言或手动写入 `localStorage('openinstrument.lang', 'zh-CN')` 切换
+- 其他语言 (zh-TW / ja / ko / fr / es / de / ru / ar / he) 翻译包尚未生成
+- RTL 布局支持 (ar / he) 尚未实现
 
 ### 2.1 工厂层级 (Plant Hierarchy)
 
