@@ -28,7 +28,7 @@ uv run python manage.py migrate_schemas             # migrate all tenant schemas
 uv run python manage.py seed_demo_data        # tenant-schema demo data (engineering)
 uv run python manage.py seed_admin_data       # public-schema demo data (orgs, users, roles)
 uv run python manage.py runserver             # http://localhost:8000
-uv run pytest                                 # tests (pytest-django; no config file yet)
+uv run pytest                                 # tests (pytest-django; config in pyproject.toml)
 uv run ruff check .                           # lint
 uv run black .                                # format
 ```

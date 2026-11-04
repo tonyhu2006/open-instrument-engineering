@@ -6,3 +6,4 @@
 - **当前可用的等效命令**：在 `backend/` 下执行 `uv run pytest tests/test_tenant_isolation.py -x`；或在仓库根目录执行 `uv run --directory backend pytest tests/test_tenant_isolation.py -x`。
 - **另**：V6 需要 pytest 配置（`DJANGO_SETTINGS_MODULE`），已在 `backend/pyproject.toml` 增加 `[tool.pytest.ini_options]`。AGENTS.md「已知残缺与坑」中"pytest 无配置文件"的描述已过时。
 - **待裁决**：由人工更新 AGENTS.md 的 V6 命令与上述描述。
+- **✅ 已解决（2026-11-04，经用户指令）**：AGENTS.md V6 改为在 `backend/` 下执行 `uv run pytest tests/test_tenant_isolation.py -x`（注释给出仓库根目录等效命令），与 V1–V3 的工作目录约定一致；「已知残缺与坑」中 pytest 条目改为记录现行配置；CLAUDE.md 同步更新。两种写法均已实测通过。

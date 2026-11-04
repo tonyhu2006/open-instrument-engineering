@@ -435,3 +435,17 @@ ProjectMembership 自项目改用 `ProjectTaskForce + TaskForceMembership` 体�
 - V4 `spectacular --validate --fail-on-warn`：0 errors / 0 warnings ✅
 - V6 `uv run --directory backend pytest tests/test_tenant_isolation.py -x`：修复前 4 failed / 15 passed，修复后 19 passed ✅
 - 开发库无 `ISO-*` 残留（测试仅使用 pytest 的 test_ 数据库）✅
+
+---
+
+## 2026-11-04（后续 2）— 解决 OQ-001：AGENTS.md V6 命令路径
+
+**触发指令**：请解决 OPEN_QUESTIONS.md（OQ-001）问题。
+
+### 操作
+- 修改：`AGENTS.md` V6 命令改为 `backend/` 下执行 `uv run pytest tests/test_tenant_isolation.py -x`（注释给出仓库根目录等效命令）；「已知残缺与坑」拆分 mypy / pytest 条目，pytest 条目记录现行配置与 `backend/tests/conftest.py` 共享 fixture。GitNexus 自动管理块未改动。
+- 修改：`CLAUDE.md` pytest 注释 "no config file yet" → "config in pyproject.toml"。
+- 修改：`docs/OPEN_QUESTIONS.md` OQ-001 追加"已解决"记录（未删改既有内容）。
+
+### 验证
+- 按 AGENTS.md 新命令原样执行（backend/ 下）：19 passed ✅

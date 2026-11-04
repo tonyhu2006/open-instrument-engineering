@@ -44,14 +44,15 @@ curl -sf http://localhost:8000/api/schema/ > /dev/null   # 或 spectacular --val
 # V5 前端（frontend/ 目录下）
 npm run lint && npm run build
 
-# V6 租户隔离回归（文件待 WP-01 创建后启用）
-uv run pytest backend/tests/test_tenant_isolation.py -x
+# V6 租户隔离回归（backend/ 目录下；仓库根目录等效：uv run --directory backend pytest tests/test_tenant_isolation.py -x）
+uv run pytest tests/test_tenant_isolation.py -x
 ```
 
 ## 已知残缺与坑（agent 撞到时按此处理，不要自作主张绕过）
 
 - `frontend/src/lib/` 缺失：约十几个文件 import `@/lib/api` 与 `@/lib/utils`，构建会失败。触碰前端的 WP 需先创建这两个模块（记入该 WP 交付物），不得改掉所有 import 来"修复"。
-- mypy 未配置、pytest 无配置文件：暂不作为 V 门槛；引入配置属于独立小 WP，不得夹带。
+- mypy 未配置：暂不作为 V 门槛；引入配置属于独立小 WP，不得夹带。
+- pytest 已配置于 `backend/pyproject.toml` 的 `[tool.pytest.ini_options]`（`DJANGO_SETTINGS_MODULE=config.settings`、`testpaths=["tests"]`）；pytest-django 自建 `test_` 数据库，不触碰开发库。跨 app / 租户级测试放 `backend/tests/`，共享 fixture（含会话级双租户 `isolation_tenants`）在 `backend/tests/conftest.py`。
 - **RBAC（已裁决，决策 D5，见 SPECIFICATION.md §4.12.1/§15.2.1）**：权限等级维持代码现行 **5 级** `Role.Level`（禁止增改枚举，Level 2 预留）；系统预设角色为 **7 个**（§15.2.2 表，`is_system_role=True`），缺失的角色以数据迁移补齐（WP-02 交付物）。权限判定走 `Role.permissions` 矩阵，禁止按 `role.code` 硬编码业务分支（Administrator 旁路除外）。
 - `docs/` 内部优先级：SPECIFICATION.md（唯一 spec，架构与功能双重权威）> IMPLEMENTATION.md（现状记录，只描述已建成的，不构成需求）> DEVELOPMENT_ROADMAP.md / PRD.md > README（最旧，License 徽章已知有误）。IMPLEMENTATION.md 与代码不符时，以代码为准并更新 IMPLEMENTATION.md。
 
