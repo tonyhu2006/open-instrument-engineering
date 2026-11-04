@@ -173,7 +173,10 @@ class InstrumentTypeViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Validate spec data against schema",
-        description="Validates provided spec_data against this instrument type's schema_template",
+        description=(
+            "Validates provided spec_data against this instrument type's "
+            "schema_template"
+        ),
         request={"application/json": {"type": "object"}},
         responses={
             200: {

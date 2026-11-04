@@ -12,16 +12,17 @@ Creates 7 system roles per organization:
 
 Permission matrix (from SPECIFICATION.md / design screenshot):
 
-| Resource              | Admin | Proj Engr | Instr Engr | Proc Engr | Mech Engr | Guest |
-|-----------------------|-------|-----------|------------|-----------|-----------|-------|
-| tag/loop/wiring       | CRUD  | CRUD      | CRUD       | R         | R         | R     |
-| process_data          | CRUD  | CRUD      | R          | CRUD      | R         | R     |
-| pipe_spec/connection  | CRUD  | CRUD      | R          | R         | CRUD      | R     |
-| user/role/organization| CRUD  | —         | —          | —         | —         | —     |
-| task_force            | CRUD  | CR*       | —          | —         | —         | —     |
-| audit_log             | R     | —         | —          | —         | —         | —     |
+| Resource              | Admin | ProjEng | InstEng | ProcEng | MechEng | Guest |
+|-----------------------|-------|---------|---------|---------|---------|-------|
+| tag/loop/wiring       | CRUD  | CRUD    | CRUD    | R       | R       | R     |
+| process_data          | CRUD  | CRUD    | R       | CRUD    | R       | R     |
+| pipe_spec/connection  | CRUD  | CRUD    | R       | R       | CRUD    | R     |
+| user/role/organization| CRUD  | —       | —       | —       | —       | —     |
+| task_force            | CRUD  | CR*     | —       | —       | —       | —     |
+| audit_log             | R     | —       | —       | —       | —       | —     |
 
-Idempotent: re-running the command updates permission matrices but never duplicates roles.
+Idempotent: re-running the command updates permission matrices but never
+duplicates roles.
 
 Usage:
     python manage.py seed_rbac
@@ -68,7 +69,8 @@ def _permissions_for(level: int, code: str) -> dict:
             "process_data": CRUD,
             "pipe_spec": CRUD,
             "connection": CRUD,
-            # CR* on task force — create + read; update/delete only on own (enforced at API)
+            # CR* on task force — create + read; update/delete only on own
+            # (enforced at API)
             "task_force": CR,
         }
 
@@ -131,14 +133,20 @@ ROLE_DEFINITIONS = [
         "code": "PROJ_MGR",
         "name": "Project Manager",
         "level": Role.Level.PROJECT_ENGINEER,
-        "description": "项目经理 — 负责项目总体进度、资源与商务协调；拥有项目内全专业读写权限，可创建并管理本人创建的工程项目组",
+        "description": (
+            "项目经理 — 负责项目总体进度、资源与商务协调；"
+            "拥有项目内全专业读写权限，可创建并管理本人创建的工程项目组"
+        ),
         "display_order": 20,
     },
     {
         "code": "PROJ_ENG",
         "name": "Project Engineer",
         "level": Role.Level.PROJECT_ENGINEER,
-        "description": "项目工程师 — 拥有项目内全专业读写权限；可基于项目号创建并管理本人创建的工程项目组",
+        "description": (
+            "项目工程师 — 拥有项目内全专业读写权限；"
+            "可基于项目号创建并管理本人创建的工程项目组"
+        ),
         "display_order": 30,
     },
     {
@@ -173,7 +181,10 @@ ROLE_DEFINITIONS = [
 
 
 class Command(BaseCommand):
-    help = "Seed the 7 RBAC system roles per organization with the design permission matrix."
+    help = (
+        "Seed the 7 RBAC system roles per organization with the design "
+        "permission matrix."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -217,8 +228,9 @@ class Command(BaseCommand):
             else:
                 self.stderr.write(
                     self.style.WARNING(
-                        "No organizations exist. Re-run with --create-org to create a default DEMO org, "
-                        "or create an organization first via the admin UI."
+                        "No organizations exist. Re-run with --create-org to "
+                        "create a default DEMO org, or create an organization "
+                        "first via the admin UI."
                     )
                 )
                 return
@@ -254,7 +266,8 @@ class Command(BaseCommand):
                         )
                     )
                 else:
-                    # Refresh permission matrix and metadata to keep DB in sync with code
+                    # Refresh permission matrix and metadata to keep DB in sync
+                    # with code
                     changed = False
                     for field, value in defaults.items():
                         if getattr(role, field) != value:
@@ -273,7 +286,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\nRBAC seed complete: {total_created} created, {total_updated} updated, "
-                f"across {orgs.count()} organization(s)."
+                f"\nRBAC seed complete: {total_created} created, "
+                f"{total_updated} updated, across {orgs.count()} organization(s)."
             )
         )

@@ -7,7 +7,8 @@ completely independent from any other project's data.
 
 Usage:
     python manage.py seed_demo_project
-    python manage.py seed_demo_project --project-no PRJ-2025-002 --name "Refinery Upgrade"
+    python manage.py seed_demo_project --project-no PRJ-2025-002
+        --name "Refinery Upgrade"   (same command, wrapped)
 """
 
 from django.core.management.base import BaseCommand
@@ -22,7 +23,9 @@ from apps.tenants.models import ProjectTenant
 DEFAULT_PAYLOAD = {
     "project_no": "PRJ-2025-002",
     "name": "LNG Receiving Terminal Project",
-    "description": "Coastal LNG receiving terminal — used to validate tenant schema isolation",
+    "description": (
+        "Coastal LNG receiving terminal — used to validate tenant schema isolation"
+    ),
     "client": {
         "code": "CNPC",
         "name": "China National Petroleum Corporation",

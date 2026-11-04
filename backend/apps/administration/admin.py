@@ -1,7 +1,8 @@
 """
 Administration Admin Configuration
 
-Note: Project, Client, Site, Plant, NamingConvention have been moved to tenant-specific apps.
+Note: Project, Client, Site, Plant, NamingConvention have been moved to
+tenant-specific apps.
 - Project → apps.tenants.models.ProjectTenant
 - Client, Site, Plant, NamingConvention → apps.core_engineering.models (tenant schema)
 """

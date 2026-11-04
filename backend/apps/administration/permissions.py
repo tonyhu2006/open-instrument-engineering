@@ -3,13 +3,13 @@ RBAC Permission Classes
 
 Implements role-based access control matching the permission matrix:
 
-| Data Type            | Admin | Proj Engr | Instr Engr | Proc Engr | Mech Engr | Guest |
-|----------------------|-------|-----------|------------|-----------|-----------|-------|
-| Tag/Loop/Wiring      | CRUD  | CRUD      | CRUD       | R         | R         | R     |
-| ProcessData          | CRUD  | CRUD      | R          | CRUD      | R         | R     |
-| PipeSpec/Connection  | CRUD  | CRUD      | R          | R         | CRUD      | R     |
-| User/Role mgmt       | CRUD  | -         | -          | -         | -         | -     |
-| Project Task Force   | CRUD  | CR* (own) | -          | -         | -         | -     |
+| Data Type            | Admin | ProjEng   | InstEng | ProcEng | MechEng | Guest |
+|----------------------|-------|-----------|---------|---------|---------|-------|
+| Tag/Loop/Wiring      | CRUD  | CRUD      | CRUD    | R       | R       | R     |
+| ProcessData          | CRUD  | CRUD      | R       | CRUD    | R       | R     |
+| PipeSpec/Connection  | CRUD  | CRUD      | R       | R       | CRUD    | R     |
+| User/Role mgmt       | CRUD  | -         | -       | -       | -       | -     |
+| Project Task Force   | CRUD  | CR* (own) | -       | -       | -       | -     |
 
 Role hierarchy (level):
   5 = Administrator

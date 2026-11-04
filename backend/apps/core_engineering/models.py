@@ -242,7 +242,8 @@ class PlantHierarchy(MPTTModel, TimeStampedModel):
                     {
                         "node_type": _(
                             f"A {self.node_type} cannot be a child of a {parent_type}. "
-                            f"Valid children for {parent_type}: {valid_children.get(parent_type, [])}"
+                            f"Valid children for {parent_type}: "
+                            f"{valid_children.get(parent_type, [])}"
                         )
                     }
                 )
@@ -372,7 +373,8 @@ class InstrumentType(TimeStampedModel):
         default=dict,
         help_text=_(
             "JSON Schema defining the required specification fields. "
-            "Example: {'type': 'object', 'properties': {'range_min': {'type': 'number'}, ...}}"
+            "Example: {'type': 'object', 'properties': "
+            "{'range_min': {'type': 'number'}, ...}}"
         ),
     )
     default_spec_data = models.JSONField(
@@ -617,7 +619,8 @@ class NamingConvention(TimeStampedModel):
             else:
                 return (
                     False,
-                    f"Tag number '{tag_number}' does not match pattern: {self.regex_pattern}",
+                    f"Tag number '{tag_number}' does not match pattern: "
+                    f"{self.regex_pattern}",
                 )
         except re.error as e:
             return False, f"Invalid regex pattern: {e}"

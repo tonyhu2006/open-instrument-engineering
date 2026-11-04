@@ -29,9 +29,8 @@ print(
 )
 print(f'  DatabaseWrapper.schema_name = {getattr(real_conn, "schema_name", "NOT SET")}')
 print(f"  ConnectionProxy.__dict__.keys() = {list(connection.__dict__.keys())}")
-print(
-    f'  DatabaseWrapper.__dict__.keys() = {[k for k in real_conn.__dict__.keys() if "schema" in k.lower()]}'
-)
+schema_keys = [k for k in real_conn.__dict__.keys() if "schema" in k.lower()]
+print(f"  DatabaseWrapper.__dict__.keys() = {schema_keys}")
 
 # Now test Client query
 from apps.core_engineering.models import Client

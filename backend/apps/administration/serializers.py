@@ -1,9 +1,11 @@
 """
 Administration Serializers - API serialization for administration models
 
-Note: Project, Client, Site, Plant, NamingConvention serializers have been moved to:
+Note: Project, Client, Site, Plant, NamingConvention serializers have been
+moved to:
 - Project → apps.tenants.serializers
-- Client, Site, Plant, NamingConvention → apps.core_engineering.serializers (tenant schema)
+- Client, Site, Plant, NamingConvention → apps.core_engineering.serializers
+  (tenant schema)
 """
 
 from django.contrib.auth import get_user_model

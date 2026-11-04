@@ -1,7 +1,8 @@
 """
 Administration Views - API endpoints for administration models
 
-Note: Project, Client, Site, Plant, NamingConvention have been moved to tenant-specific apps.
+Note: Project, Client, Site, Plant, NamingConvention have been moved to
+tenant-specific apps.
 - Project → apps.tenants (ProjectTenant)
 - Client, Site, Plant, NamingConvention → apps.core_engineering (tenant schema)
 """
@@ -59,7 +60,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
 # Note: ProjectViewSet, ClientViewSet, SiteViewSet, PlantViewSet have been moved to:
 # - ProjectViewSet → apps.tenants.views.ProjectTenantViewSet
-# - ClientViewSet, SiteViewSet, PlantViewSet → apps.core_engineering.views (tenant schema)
+# - ClientViewSet, SiteViewSet, PlantViewSet → apps.core_engineering.views
+#   (tenant schema)
 
 
 class RoleViewSet(viewsets.ModelViewSet):

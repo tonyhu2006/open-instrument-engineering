@@ -14,7 +14,8 @@ for t in ProjectTenant.objects.all():
         connection.set_tenant(t)
         with connection.cursor() as c:
             c.execute(
-                "SELECT tablename FROM pg_tables WHERE schemaname = %s AND tablename LIKE 'core_engineering%%'",
+                "SELECT tablename FROM pg_tables "
+                "WHERE schemaname = %s AND tablename LIKE 'core_engineering%%'",
                 [t.schema_name],
             )
             tables = [row[0] for row in c.fetchall()]
