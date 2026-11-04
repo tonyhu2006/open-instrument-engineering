@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  Open Instrument — web-based instrumentation engineering system.
+  Monorepo: backend/ (Django 5.2 + DRF, Python >=3.11, uv) and frontend/
+  (React 19 + TypeScript + Vite 7 + Tailwind v4 + Shadcn UI).
+  PostgreSQL 16 on port 5433, Redis 7 on port 6380 (docker-compose).
+
+  Multi-tenancy is the central design constraint: django-tenants with one
+  PostgreSQL schema per project. SHARED_APPS (public schema): apps.core,
+  apps.tenants, apps.administration. TENANT_APPS (per-project schema):
+  apps.core_engineering. Tenant selection via X-Project-ID request header.
+  Cross-schema FK rule: never add a real ForeignKey across the shared/tenant
+  boundary — store project_id as a plain IntegerField and expose a property.
+  Migrations: use `migrate_schemas`, never plain `migrate`.
+
+  Auth: JWT (simplejwt) at /api/token/. Custom user model
+  administration.User (reference via settings.AUTH_USER_MODEL). RBAC with 5
+  role levels; non-admin permissions are a JSON matrix on Role.permissions.
+  Plant hierarchy uses django-mptt inside tenant schemas.
+
+  Frontend: React Router 7 SPA, Zustand auth store, JWT in localStorage,
+  Vite alias @ -> src, /api proxied to localhost:8000. Tenant-scoped
+  requests must send X-Project-ID.
+
+  Conventions: models inherit apps.core.models.TimeStampedModel;
+  ruff + black at line-length 88; docs in docs/ are more current than README.
+
+rules:
+  proposal:
+    - State which side(s) a change touches (backend shared schema, backend tenant schema, frontend) and why
+    - Include an "Out of scope" section
+  specs:
+    - For any tenant-schema model change, include a scenario covering migrate_schemas on existing tenants
+    - For any API change, specify whether the endpoint is tenant-scoped (requires X-Project-ID) or public-schema
+  design:
+    - Call out cross-schema references explicitly; a real FK across the shared/tenant boundary is a design error
+  tasks:
+    - Tests first where a seam exists (pytest-django backend, frontend build/lint)
+    - New tenant-schema migrations must be applied with migrate_schemas, not migrate
