@@ -1,226 +1,116 @@
 """
-RBAC Permission Classes
+DRF permission classes.
 
-Implements role-based access control matching the permission matrix:
-
-| Data Type            | Admin | ProjEng   | InstEng | ProcEng | MechEng | Guest |
-|----------------------|-------|-----------|---------|---------|---------|-------|
-| Tag/Loop/Wiring      | CRUD  | CRUD      | CRUD    | R       | R       | R     |
-| ProcessData          | CRUD  | CRUD      | R       | CRUD    | R       | R     |
-| PipeSpec/Connection  | CRUD  | CRUD      | R       | R       | CRUD    | R     |
-| User/Role mgmt       | CRUD  | -         | -       | -       | -       | -     |
-| Project Task Force   | CRUD  | CR* (own) | -       | -       | -       | -     |
-
-Role hierarchy (level):
-  5 = Administrator
-  4 = Project Manager
-  3 = Engineer (Instr/Proc/Mech) — code prefix discriminates discipline
-  2 = Engineer Level 2
-  1 = Guest
+* ``IsProjectMemberOrPublicSchema`` — §15.3.3 project visibility at the DRF
+  layer (JWT authentication only happens inside DRF, so the middleware cannot
+  see JWT users).
+* ``RoleMatrixPermission`` — §15.2.4 data-permission matrix (decision D5):
+  the view declares ``rbac_resource``; the HTTP method (or
+  ``rbac_action_map[view.action]``) gives the action.
 """
 
 from django_tenants.utils import get_public_schema_name
-from rest_framework.permissions import SAFE_METHODS, BasePermission
+from rest_framework.permissions import BasePermission
 
-from .models import Role
+from .access import (
+    is_administrator,
+    user_accessible_project_ids,
+    user_has_permission,
+)
+
+METHOD_ACTIONS = {
+    "GET": "read",
+    "HEAD": "read",
+    "OPTIONS": "read",
+    "POST": "create",
+    "PUT": "update",
+    "PATCH": "update",
+    "DELETE": "delete",
+}
+
+
+def current_project_id(request):
+    tenant = getattr(request, "tenant", None)
+    schema = getattr(tenant, "schema_name", None)
+    if not schema or schema == get_public_schema_name():
+        return None
+    return getattr(tenant, "pk", None)
 
 
 class IsProjectMemberOrPublicSchema(BasePermission):
-    """
-    Enforces SPECIFICATION.md §3.1.0.5.6 project visibility rule at the DRF level.
-
-    - Requests targeting the public schema (no X-Project-ID or admin-only
-      prefixes) are always allowed (auth still required by other permissions).
-    - Requests targeting a project-tenant schema require the authenticated
-      user to be a member or leader of that project, **unless** the user has
-      Administrator role or is a Django superuser.
-    """
+    """Only administrators or task-force members may act inside a project."""
 
     message = "You are not a member of this project."
 
     def has_permission(self, request, view):
-        tenant = getattr(request, "tenant", None)
-        if tenant is None:
-            return True
-        schema = getattr(tenant, "schema_name", None)
-        if schema is None or schema == get_public_schema_name():
+        project_id = current_project_id(request)
+        if project_id is None:
             return True
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
             return False
-        # Lazy import avoids a circular dependency (access → models → …).
-        from .access import user_accessible_project_ids
-
         accessible = user_accessible_project_ids(user)
-        if accessible is None:
-            return True  # admin bypass
-        pk = getattr(tenant, "pk", None)
-        return pk is not None and pk in accessible
+        return accessible is None or project_id in accessible
 
 
-def _user_role_level(user) -> int:
-    """Return numeric role level for a user, or 0 if no role/anonymous."""
-    if not user or not user.is_authenticated:
-        return 0
-    # Django superuser bypass — full admin access
-    if getattr(user, "is_superuser", False):
-        return Role.Level.ADMINISTRATOR
-    role = getattr(user, "role", None)
-    if not role:
-        return 0
-    return role.level or 0
+class RoleMatrixPermission(BasePermission):
+    """Checks ``Role.permissions[view.rbac_resource]`` for the request action."""
 
+    message = "Your role does not allow this action."
 
-def _user_role_code(user) -> str:
-    """Return uppercase role code for discipline checks (e.g. 'INST_ENG')."""
-    if not user or not user.is_authenticated:
-        return ""
-    role = getattr(user, "role", None)
-    if not role:
-        return ""
-    return (role.code or "").upper()
+    @staticmethod
+    def action_for(request, view) -> str:
+        action_map = getattr(view, "rbac_action_map", {}) or {}
+        view_action = getattr(view, "action", None)
+        if view_action in action_map:
+            return action_map[view_action]
+        return METHOD_ACTIONS.get(request.method, "update")
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        resource = getattr(view, "rbac_resource", None)
+        if resource is None:
+            return is_administrator(user)
+        action = self.action_for(request, view)
+        project_id = current_project_id(request)
+        if user_has_permission(user, resource, action, project_id=project_id):
+            return True
+        # Read access granted through another permission (e.g. user/role
+        # pickers needed to manage one's own task force, ADM-TF03).
+        if action == "read":
+            for other_resource, other_action in getattr(
+                view, "rbac_read_delegates", ()
+            ):
+                if user_has_permission(
+                    user, other_resource, other_action, project_id=project_id
+                ):
+                    return True
+        return False
 
 
 class IsAdministrator(BasePermission):
-    """Only Administrator (level 5) can access. Django superuser also passes."""
+    """Administrator (level 5) or Django superuser."""
 
     message = "Only administrators can perform this action."
 
     def has_permission(self, request, view):
-        return _user_role_level(request.user) >= Role.Level.ADMINISTRATOR
+        return is_administrator(getattr(request, "user", None))
 
 
-class IsProjectEngineerOrAbove(BasePermission):
-    """Project Manager (level 4) or Administrator (level 5)."""
+class TaskForceObjectPermission(BasePermission):
+    """ADM-TF01: Administrators manage any task force; other creators (PM/PE
+    with ``task_force.create``) manage only the groups they created."""
 
-    message = "Only project managers or administrators can perform this action."
-
-    def has_permission(self, request, view):
-        return _user_role_level(request.user) >= Role.Level.PROJECT_ENGINEER
-
-
-class IsAuthenticatedReadOrAdminWrite(BasePermission):
-    """
-    Read: any authenticated user.
-    Write: Administrator only.
-
-    Use for resources like Organizations, Roles, Users, AuditLog.
-    """
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.method in SAFE_METHODS:
-            return True
-        return _user_role_level(request.user) >= Role.Level.ADMINISTRATOR
-
-
-class TaskForcePermission(BasePermission):
-    """
-    Task Force creation and management rules:
-    - Read: any authenticated user (visibility scope handled in queryset).
-    - Create: Administrator OR Project Manager.
-    - Update/Delete: Administrator (any) OR Project Manager (only own task forces).
-    """
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.method in SAFE_METHODS:
-            return True
-        # Write actions require PE+
-        return _user_role_level(request.user) >= Role.Level.PROJECT_ENGINEER
+    message = "You can only manage task forces you created."
 
     def has_object_permission(self, request, view, obj):
-        if request.method in SAFE_METHODS:
+        user = request.user
+        if request.method in ("GET", "HEAD", "OPTIONS"):
             return True
-        level = _user_role_level(request.user)
-        if level >= Role.Level.ADMINISTRATOR:
+        if is_administrator(user):
             return True
-        if level >= Role.Level.PROJECT_ENGINEER:
-            # PE can only modify task forces they lead/created
-            leader_id = getattr(obj, "leader_id", None)
-            return leader_id == request.user.id
-        return False
-
-
-class TaskForceMembershipPermission(BasePermission):
-    """
-    Task Force membership rules:
-    - Administrator can manage any membership.
-    - Project Manager can manage memberships of task forces they lead.
-    - Others: read only.
-    """
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.method in SAFE_METHODS:
-            return True
-        return _user_role_level(request.user) >= Role.Level.PROJECT_ENGINEER
-
-    def has_object_permission(self, request, view, obj):
-        if request.method in SAFE_METHODS:
-            return True
-        level = _user_role_level(request.user)
-        if level >= Role.Level.ADMINISTRATOR:
-            return True
-        if level >= Role.Level.PROJECT_ENGINEER:
-            tf = getattr(obj, "task_force", None)
-            if tf and getattr(tf, "leader_id", None) == request.user.id:
-                return True
-        return False
-
-
-# =============================================================================
-# Engineering data permissions — applied per discipline (Instrumentation /
-# Process / Mechanical). Guest is read-only on everything.
-# =============================================================================
-
-# Conventional role codes used to identify discipline
-INSTRUMENT_CODES = {"INST_ENG", "INSTRUMENTATION", "INSTRUMENT_ENGINEER", "INSTR_ENG"}
-PROCESS_CODES = {"PROC_ENG", "PROCESS", "PROCESS_ENGINEER"}
-MECHANICAL_CODES = {"MECH_ENG", "MECHANICAL", "MECHANICAL_ENGINEER", "PIPE_ENG"}
-
-
-def _can_write_discipline(user, discipline_codes: set) -> bool:
-    """Admin and PE can always write; specific discipline engineer can write."""
-    level = _user_role_level(user)
-    if level >= Role.Level.PROJECT_ENGINEER:
-        return True
-    if level >= Role.Level.ENGINEER_L3:
-        return _user_role_code(user) in discipline_codes
-    return False
-
-
-class CanEditInstrumentation(BasePermission):
-    """Tag/Loop/Wiring: Admin/PE/Instr Engr can write; everyone else read."""
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.method in SAFE_METHODS:
-            return True
-        return _can_write_discipline(request.user, INSTRUMENT_CODES)
-
-
-class CanEditProcess(BasePermission):
-    """Process data: Admin/PE/Process Engr can write; everyone else read."""
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.method in SAFE_METHODS:
-            return True
-        return _can_write_discipline(request.user, PROCESS_CODES)
-
-
-class CanEditMechanical(BasePermission):
-    """Pipe spec / connection: Admin/PE/Mech Engr can write."""
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.method in SAFE_METHODS:
-            return True
-        return _can_write_discipline(request.user, MECHANICAL_CODES)
+        return obj.created_by_id == user.pk and user_has_permission(
+            user, "task_force", "create"
+        )

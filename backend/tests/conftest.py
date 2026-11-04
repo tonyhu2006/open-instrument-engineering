@@ -50,6 +50,15 @@ def isolation_tenants(django_db_setup, django_db_blocker):
         org.delete()
 
 
+@pytest.fixture
+def roles(isolation_tenants):
+    """The 7 system roles of the isolation organization, keyed by code."""
+    from apps.administration.models import Role
+    from apps.administration.rbac import ensure_system_roles
+
+    return {r.code: r for r in ensure_system_roles(isolation_tenants.org, Role)}
+
+
 @pytest.fixture(autouse=True)
 def _reset_schema_to_public():
     """The tenant middleware leaves the shared connection on the last

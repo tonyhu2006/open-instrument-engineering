@@ -1,75 +1,61 @@
 """
-Tenant Views - API views for project tenant management.
+Project tenant API — §15.1.3.
+
+Permissions (§15.2.4 "Project" row): Administrator CRUD, PM/PE read+update,
+everyone else read; visibility limited by §15.3.3.
 """
 
-from django.db import connection
-from rest_framework import viewsets
+from django_tenants.utils import get_public_schema_name
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.administration.access import user_accessible_project_ids
+from apps.administration.permissions import RoleMatrixPermission
+from apps.core.viewsets import ServiceModelViewSet
 
 from .models import ProjectTenant
-from .serializers import (
-    ProjectTenantCreateSerializer,
-    ProjectTenantSerializer,
-)
+from .serializers import ProjectTenantCreateSerializer, ProjectTenantSerializer
+from .services import ProjectTenantService
 
 
-class ProjectTenantViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing ProjectTenants (projects with schema isolation).
+class ProjectTenantViewSet(ServiceModelViewSet):
+    """Engineering projects (one PostgreSQL schema each)."""
 
-    list: Get all projects the user has access to
-    create: Create a new project (creates new schema)
-    retrieve: Get project details
-    update: Update project metadata
-    destroy: Delete project (drops schema)
-    """
-
-    permission_classes = [IsAuthenticated]
+    queryset = ProjectTenant.objects.exclude(schema_name=get_public_schema_name())
+    service_class = ProjectTenantService
+    permission_classes = [RoleMatrixPermission]
+    rbac_resource = "project"
+    rbac_action_map = {"switch": "read", "current": "read"}
+    filterset_fields = ["status", "organization_id"]
+    search_fields = ["project_no", "name"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
-        """
-        Filter projects by TaskForce membership per SPECIFICATION.md §3.1.0.5.6.
-        Administrator / superuser see all projects; all other users only see
-        projects they are a member or leader of via ProjectTaskForce.
-        """
-        user = self.request.user
-        accessible = user_accessible_project_ids(user)
+        queryset = super().get_queryset()
+        accessible = user_accessible_project_ids(self.request.user)
         if accessible is None:
-            # Admin bypass
-            return ProjectTenant.objects.all()
-        if not accessible:
-            return ProjectTenant.objects.none()
-        return ProjectTenant.objects.filter(pk__in=accessible)
+            return queryset
+        return queryset.filter(pk__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "create":
             return ProjectTenantCreateSerializer
         return ProjectTenantSerializer
 
-    def perform_create(self, serializer):
-        """Create project and its schema."""
-        # Set organization from user if not provided
-        if "organization_id" not in serializer.validated_data:
-            serializer.validated_data["organization_id"] = (
-                self.request.user.organization_id
-            )
-
-        # Save creates the tenant and schema
-        serializer.save()
-
+    @extend_schema(
+        request=None,
+        responses=inline_serializer(
+            "ProjectSwitchResponse",
+            {"message": serializers.CharField(), "project": ProjectTenantSerializer()},
+        ),
+    )
     @action(detail=True, methods=["post"])
     def switch(self, request, pk=None):
-        """
-        Switch to this project's schema.
-        Returns project details and sets the schema for subsequent requests.
-        """
+        """Confirm access to the project. Tenant selection itself is
+        per-request via the ``X-Project-ID`` header (ADM-T01)."""
         project = self.get_object()
-        connection.set_tenant(project)
-
         return Response(
             {
                 "message": f"Switched to project {project.project_no}",
@@ -77,19 +63,19 @@ class ProjectTenantViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @extend_schema(
+        responses=inline_serializer(
+            "CurrentProjectResponse",
+            {"project": ProjectTenantSerializer(allow_null=True)},
+        ),
+    )
     @action(detail=False, methods=["get"])
     def current(self, request):
-        """Get the current project context."""
-        tenant = getattr(request, "tenant", None)
-        if tenant:
-            return Response(
-                {
-                    "project": ProjectTenantSerializer(tenant).data,
-                }
-            )
+        """The project selected by ``X-Project-ID`` (if any)."""
+        raw = request.headers.get("X-Project-ID")
+        project = None
+        if raw and raw.isdigit():
+            project = self.get_queryset().filter(pk=int(raw)).first()
         return Response(
-            {
-                "project": None,
-                "message": "No project selected (using public schema)",
-            }
+            {"project": ProjectTenantSerializer(project).data if project else None}
         )

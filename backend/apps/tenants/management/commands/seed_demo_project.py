@@ -16,6 +16,8 @@ from django.db import connection, transaction
 
 from apps.administration.models import Organization
 from apps.core_engineering.models import Client, Plant, Site
+from apps.core_engineering.services import PlantService
+from apps.tenants import hierarchy_config
 from apps.tenants.models import ProjectTenant
 
 # Distinctive sample payloads so it is obvious in the UI that the two
@@ -105,10 +107,10 @@ class Command(BaseCommand):
                 "description": DEFAULT_PAYLOAD["description"],
                 "organization_id": org.id,
                 "status": ProjectTenant.Status.ACTIVE,
-                "hierarchy_config": {
-                    "template": "standard",
-                    "levels": ["site", "plant", "area", "unit"],
-                },
+                "hierarchy_config": hierarchy_config.normalize(
+                    {"template": "standard", "auto_create_defaults": False},
+                    for_new_project=True,
+                ),
             },
         )
 
@@ -150,11 +152,11 @@ class Command(BaseCommand):
         )
 
         for plant_data in DEFAULT_PAYLOAD["plants"]:
-            plant, p_created = Plant.objects.get_or_create(
-                site=site,
-                code=plant_data["code"],
-                defaults={k: v for k, v in plant_data.items() if k != "code"},
-            )
+            # PlantService also creates the Plant's PLANT root node (§15.4.5).
+            plant = Plant.alive.filter(site=site, code=plant_data["code"]).first()
+            p_created = plant is None
+            if p_created:
+                plant = PlantService().create({**plant_data, "site": site})
             self.stdout.write(
                 ("  + " if p_created else "  = ")
                 + f"Plant  {plant.code} - {plant.name}"

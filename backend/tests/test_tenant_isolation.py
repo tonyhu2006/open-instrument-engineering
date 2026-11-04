@@ -6,9 +6,10 @@ Covers three layers:
    exactly one project schema.
 2. Static model contract (AGENTS.md hard rules 1 & 2): tenant models carry no
    project/domain columns and no ForeignKey into shared (public) models.
-3. HTTP routing & access control (SPECIFICATION §3.1.0.5.6): X-Project-ID
+3. HTTP routing & access control (SPECIFICATION §15.3.3): X-Project-ID
    selects the schema, and only administrators or project task-force members
-   may read a project's data — for both JWT and session authentication.
+   may read a project's data — for both JWT and session authentication. An
+   invalid or unknown X-Project-ID is answered with 403 (DoD #10).
 """
 
 import pytest
@@ -24,8 +25,8 @@ from apps.core_engineering.models import Client
 
 pytestmark = pytest.mark.django_db
 
-CLIENTS_URL = "/api/engineering/clients/"
-PROJECTS_URL = "/api/tenants/projects/"
+CLIENTS_URL = "/api/v1/clients/"
+PROJECTS_URL = "/api/v1/tenants/projects/"
 
 User = get_user_model()
 
@@ -57,10 +58,13 @@ def admin_user(isolation_tenants):
 
 
 @pytest.fixture
-def member_of_a(isolation_tenants):
-    """Regular user who belongs to project A only (via a task force)."""
+def member_of_a(isolation_tenants, roles):
+    """Regular user (Instrumentation Engineer) who belongs to project A only."""
     user = User.objects.create_user(
-        username="iso_member_a", password="x", organization=isolation_tenants.org
+        username="iso_member_a",
+        password="x",
+        organization=isolation_tenants.org,
+        role=roles["INST_ENG"],
     )
     task_force = ProjectTaskForce.objects.create(
         project_id=isolation_tenants.a.pk, code="TF-A", name="Task Force A"
@@ -70,10 +74,13 @@ def member_of_a(isolation_tenants):
 
 
 @pytest.fixture
-def outsider(isolation_tenants):
+def outsider(isolation_tenants, roles):
     """Authenticated user without membership in any project."""
     return User.objects.create_user(
-        username="iso_outsider", password="x", organization=isolation_tenants.org
+        username="iso_outsider",
+        password="x",
+        organization=isolation_tenants.org,
+        role=roles["PROJ_ENG"],
     )
 
 
@@ -186,11 +193,17 @@ class TestTenantRouting:
         assert _client_names(resp_a) == ["Client of A"]
         assert _client_names(resp_b) == ["Client of B"]
 
-    def test_unknown_project_id_returns_404(self, client, admin_user):
-        resp = client.get(
-            CLIENTS_URL, **_bearer(admin_user), HTTP_X_PROJECT_ID="999999"
-        )
-        assert resp.status_code == 404
+    @pytest.mark.parametrize("header", ["999999", "abc", "1;DROP", "-1"])
+    def test_invalid_or_unknown_project_id_returns_403(
+        self, client, admin_user, header
+    ):
+        """§15.3.3 / DoD #10: illegal X-Project-ID → 403, no detail leaked."""
+        resp = client.get(CLIENTS_URL, **_bearer(admin_user), HTTP_X_PROJECT_ID=header)
+        assert resp.status_code == 403
+        body = resp.json()["error"]
+        assert body["code"] == "AUTH_PROJECT_FORBIDDEN"
+        assert "expected a number" not in body["message"]
+        assert connection.schema_name == "public"
 
 
 class TestTenantAccessControl:

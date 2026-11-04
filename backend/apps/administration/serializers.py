@@ -1,66 +1,55 @@
 """
-Administration Serializers - API serialization for administration models
-
-Note: Project, Client, Site, Plant, NamingConvention serializers have been
-moved to:
-- Project → apps.tenants.serializers
-- Client, Site, Plant, NamingConvention → apps.core_engineering.serializers
-  (tenant schema)
+Administration serializers (§15.2, §15.3, §15.7).
 """
 
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import (
-    AuditLog,
-    Organization,
-    ProjectTaskForce,
-    Role,
-    TaskForceMembership,
-)
+from apps.core.viewsets import ServiceModelSerializer
+
+from .access import effective_permissions
+from .models import Organization, ProjectTaskForce, Role, TaskForceMembership
 
 User = get_user_model()
 
 
 # =============================================================================
-# Organization Serializers
+# Organization
 # =============================================================================
 
 
-class OrganizationSerializer(serializers.ModelSerializer):
-    """Serializer for Organization model."""
-
+class OrganizationSerializer(ServiceModelSerializer):
     class Meta:
         model = Organization
         fields = [
             "id",
             "code",
+            "slug",
             "name",
             "description",
             "logo",
+            "settings",
             "is_active",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {"slug": {"required": False}}
 
 
-class OrganizationListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for Organization list views."""
-
+class OrganizationListSerializer(ServiceModelSerializer):
     class Meta:
         model = Organization
-        fields = ["id", "code", "name", "is_active"]
+        fields = ["id", "code", "slug", "name", "is_active"]
 
 
 # =============================================================================
-# RBAC Serializers
+# Roles
 # =============================================================================
 
 
-class RoleSerializer(serializers.ModelSerializer):
-    """Serializer for Role model."""
-
+class RoleSerializer(ServiceModelSerializer):
     level_display = serializers.CharField(source="get_level_display", read_only=True)
 
     class Meta:
@@ -75,15 +64,14 @@ class RoleSerializer(serializers.ModelSerializer):
             "description",
             "permissions",
             "is_system_role",
+            "display_order",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "is_system_role", "created_at", "updated_at"]
 
 
-class RoleListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for Role list views."""
-
+class RoleListSerializer(ServiceModelSerializer):
     level_display = serializers.CharField(source="get_level_display", read_only=True)
     organization_name = serializers.CharField(
         source="organization.name", read_only=True, default=None
@@ -99,20 +87,35 @@ class RoleListSerializer(serializers.ModelSerializer):
             "level_display",
             "organization",
             "organization_name",
+            "permissions",
             "is_system_role",
             "display_order",
         ]
 
 
-class UserSerializer(serializers.ModelSerializer):
-    """Serializer for User model."""
+# =============================================================================
+# Users
+# =============================================================================
 
+_USER_PROFILE_FIELDS = [
+    "phone",
+    "department",
+    "title",
+    "employee_id",
+    "language",
+    "timezone",
+]
+
+
+class UserSerializer(ServiceModelSerializer):
     organization_name = serializers.CharField(
-        source="organization.name", read_only=True
+        source="organization.name", read_only=True, default=None
     )
-    role_name = serializers.CharField(source="role.name", read_only=True)
-    role_code = serializers.CharField(source="role.code", read_only=True)
-    role_level = serializers.IntegerField(source="role.level", read_only=True)
+    role_name = serializers.CharField(source="role.name", read_only=True, default=None)
+    role_code = serializers.CharField(source="role.code", read_only=True, default=None)
+    role_level = serializers.IntegerField(
+        source="role.level", read_only=True, default=None
+    )
     full_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -132,32 +135,54 @@ class UserSerializer(serializers.ModelSerializer):
             "role_level",
             "is_superuser",
             "is_staff",
-            "phone",
-            "department",
-            "title",
-            "language",
-            "timezone",
+            *_USER_PROFILE_FIELDS,
             "avatar",
             "is_active",
             "date_joined",
             "last_login",
         ]
-        read_only_fields = ["id", "date_joined", "last_login"]
-        extra_kwargs = {"password": {"write_only": True}}
+        # Superuser/staff flags are not grantable through the API; the
+        # Administrator role carries the authority (§15.2).
+        read_only_fields = [
+            "id",
+            "is_superuser",
+            "is_staff",
+            "is_active",
+            "date_joined",
+            "last_login",
+        ]
 
     def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
 
 
-class UserListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for User list views."""
+class MeSerializer(UserSerializer):
+    """Current user + effective permission matrix (drives the UI)."""
 
+    permissions = serializers.SerializerMethodField()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ["permissions"]
+        read_only_fields = UserSerializer.Meta.fields + ["permissions"]
+
+    @extend_schema_field(
+        serializers.DictField(
+            child=serializers.ListField(child=serializers.CharField())
+        )
+    )
+    def get_permissions(self, obj):
+        return effective_permissions(obj)
+
+
+class UserListSerializer(ServiceModelSerializer):
     full_name = serializers.SerializerMethodField()
-    role_name = serializers.CharField(source="role.name", read_only=True)
-    role_code = serializers.CharField(source="role.code", read_only=True)
-    role_level = serializers.IntegerField(source="role.level", read_only=True)
+    role_name = serializers.CharField(source="role.name", read_only=True, default=None)
+    role_code = serializers.CharField(source="role.code", read_only=True, default=None)
+    role_level = serializers.IntegerField(
+        source="role.level", read_only=True, default=None
+    )
     organization_name = serializers.CharField(
-        source="organization.name", read_only=True
+        source="organization.name", read_only=True, default=None
     )
 
     class Meta:
@@ -181,15 +206,14 @@ class UserListSerializer(serializers.ModelSerializer):
         return obj.get_full_name() or obj.username
 
 
-class UserCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating new users."""
-
+class UserCreateSerializer(ServiceModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
         fields = [
+            "id",
             "username",
             "email",
             "password",
@@ -198,37 +222,57 @@ class UserCreateSerializer(serializers.ModelSerializer):
             "last_name",
             "organization",
             "role",
-            "phone",
-            "department",
-            "title",
-            "language",
-            "timezone",
+            *_USER_PROFILE_FIELDS,
         ]
+        read_only_fields = ["id"]
+        extra_kwargs = {"role": {"required": True, "allow_null": False}}
 
     def validate(self, attrs):
-        if attrs["password"] != attrs.pop("password_confirm"):
+        if attrs["password"] != attrs.get("password_confirm"):
             raise serializers.ValidationError(
                 {"password_confirm": "Passwords do not match."}
             )
         return attrs
 
-    def create(self, validated_data):
-        password = validated_data.pop("password")
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
+
+class PasswordResetSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirm"]:
+            raise serializers.ValidationError(
+                {"password_confirm": "Passwords do not match."}
+            )
+        return attrs
+
+
+class StatusMessageSerializer(serializers.Serializer):
+    status = serializers.CharField()
+
+
+class PreferencesSerializer(serializers.Serializer):
+    """I18N-04 / ADM-06 user preferences. Unknown keys are UI preferences
+    (e.g. ``tableWidths``) and are deep-merged on PATCH."""
+
+    language = serializers.CharField(required=False)
+    timezone = serializers.CharField(required=False)
+    date_format = serializers.CharField(required=False)
+    number_format = serializers.CharField(required=False)
 
 
 # =============================================================================
-# Project Task Force Serializers
+# Task forces
 # =============================================================================
 
 
-class ProjectTaskForceSerializer(serializers.ModelSerializer):
-    """Serializer for ProjectTaskForce model."""
-
-    leader_name = serializers.CharField(source="leader.username", read_only=True)
+class ProjectTaskForceSerializer(ServiceModelSerializer):
+    leader_name = serializers.CharField(
+        source="leader.username", read_only=True, default=None
+    )
+    created_by_name = serializers.CharField(
+        source="created_by.username", read_only=True, default=None
+    )
     member_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -241,22 +285,36 @@ class ProjectTaskForceSerializer(serializers.ModelSerializer):
             "description",
             "leader",
             "leader_name",
+            "created_by",
+            "created_by_name",
+            "created_by_role",
             "member_count",
             "is_active",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_by",
+            "created_by_role",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_member_count(self, obj) -> int:
-        return obj.memberships.count()
+        return obj.memberships.filter(is_active=True).count()
 
 
-class TaskForceMembershipSerializer(serializers.ModelSerializer):
-    """Serializer for TaskForceMembership model."""
-
+class TaskForceMembershipSerializer(ServiceModelSerializer):
     user_name = serializers.CharField(source="user.username", read_only=True)
+    user_full_name = serializers.SerializerMethodField()
     task_force_name = serializers.CharField(source="task_force.name", read_only=True)
+    role_in_project_name = serializers.CharField(
+        source="role_in_project.name", read_only=True, default=None
+    )
+    added_by_name = serializers.CharField(
+        source="added_by.username", read_only=True, default=None
+    )
 
     class Meta:
         model = TaskForceMembership
@@ -264,53 +322,47 @@ class TaskForceMembershipSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "user_name",
+            "user_full_name",
             "task_force",
             "task_force_name",
-            "role",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
-
-
-# =============================================================================
-# Note: NamingConvention Serializers moved to apps.core_engineering.serializers
-# =============================================================================
-
-
-# =============================================================================
-# Audit Log Serializers
-# =============================================================================
-
-
-class AuditLogSerializer(serializers.ModelSerializer):
-    """Serializer for AuditLog model."""
-
-    user_name = serializers.CharField(source="user.username", read_only=True)
-    action_display = serializers.CharField(source="get_action_display", read_only=True)
-
-    class Meta:
-        model = AuditLog
-        fields = [
-            "id",
-            "organization",
-            "project_id",
-            "user",
-            "user_name",
-            "action",
-            "action_display",
-            "model_name",
-            "object_id",
-            "object_repr",
-            "old_values",
-            "new_values",
-            "ip_address",
-            "user_agent",
-            "timestamp",
+            "role_in_project",
+            "role_in_project_name",
+            "joined_at",
+            "added_by",
+            "added_by_name",
+            "is_active",
         ]
         read_only_fields = fields
 
+    def get_user_full_name(self, obj) -> str:
+        return obj.user.get_full_name() or obj.user.username
 
-# =============================================================================
-# Note: Hierarchy Serializers moved to apps.core_engineering.serializers
-# =============================================================================
+
+class AddMemberSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    role_in_project = serializers.PrimaryKeyRelatedField(
+        queryset=Role.objects.all(), required=False, allow_null=True
+    )
+
+
+class AssignProjectSerializer(serializers.Serializer):
+    project_id = serializers.IntegerField(allow_null=True)
+
+
+class MyTaskForceSerializer(ServiceModelSerializer):
+    """Entry of GET /api/v1/me/task-forces/."""
+
+    project_no = serializers.SerializerMethodField()
+    project_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectTaskForce
+        fields = ["id", "code", "name", "project_id", "project_no", "project_name"]
+
+    def get_project_no(self, obj) -> str | None:
+        project = obj.project
+        return project.project_no if project else None
+
+    def get_project_name(self, obj) -> str | None:
+        project = obj.project
+        return project.name if project else None

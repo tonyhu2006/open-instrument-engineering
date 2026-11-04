@@ -1,102 +1,71 @@
 """
-Core Engineering Models - Project Hierarchy, Plant Hierarchy, Loop, InstrumentType, Tag
+Core Engineering Models (tenant schema).
 
-These models form the foundation of the instrumentation engineering system.
-Data integrity is critical for engineering applications.
+Project hierarchy (§15.4): Client → Site → Plant → PlantHierarchy (MPTT:
+PLANT / AREA / UNIT), plus Loop, InstrumentType, Tag and NamingConvention
+(§15.5).
 
-All models in this file are TENANT-SPECIFIC - they are stored in project schemas.
+Every table inherits ``TenantBaseModel`` (§4.1.1 / §4.1.8): audit columns,
+soft delete and ``row_version``. Unique constraints only consider live rows
+(``is_deleted=False``) so codes can be reused after a soft delete, and carry
+§4.2.6 business error codes.
 """
+
+import re
 
 import jsonschema
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from mptt.models import MPTTModel, TreeForeignKey
 
-from apps.core.models import TimeStampedModel
+from apps.core.models import TenantBaseModel
+
+ALIVE = Q(is_deleted=False)
 
 # =============================================================================
-# Project Hierarchy Models (Tenant-specific)
+# Project hierarchy (§15.4.2 – §15.4.5)
 # =============================================================================
 
 
-class Client(TimeStampedModel):
-    """
-    Client - Owner/customer of the project.
-    Stored in tenant schema - no project FK needed (implicit from schema).
-    """
+class Client(TenantBaseModel):
+    """Client / owner (§15.4.2). One per project (enforced by the UI)."""
 
-    name = models.CharField(
-        max_length=300,
-        help_text=_("Client/owner name"),
-    )
-    code = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text=_("Client code (e.g., 'SINOPEC', 'CNPC')"),
-    )
-    contact_person = models.CharField(
-        max_length=200,
-        blank=True,
-        help_text=_("Primary contact person"),
-    )
-    contact_email = models.EmailField(
-        blank=True,
-        help_text=_("Contact email"),
-    )
-    contact_phone = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text=_("Contact phone"),
-    )
-    address = models.TextField(
-        blank=True,
-        help_text=_("Client address"),
-    )
+    name = models.CharField(max_length=300)
+    code = models.CharField(max_length=50, help_text=_("Unique within the project"))
+    contact_person = models.CharField(max_length=200, blank=True)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=50, blank=True)
+    address = models.TextField(blank=True)
 
     class Meta:
         verbose_name = _("Client")
         verbose_name_plural = _("Clients")
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"],
+                condition=ALIVE,
+                name="unique_client_code",
+                violation_error_code="ADM_CLIENT_CODE_DUPLICATE",
+                violation_error_message=_("Client code already exists."),
+            ),
+        ]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
 
 
-class Site(TimeStampedModel):
-    """
-    Site - Physical location/factory site.
-    Hierarchy: Client → Site
-    """
+class Site(TenantBaseModel):
+    """Site / location (§15.4.3)."""
 
-    client = models.ForeignKey(
-        Client,
-        on_delete=models.CASCADE,
-        related_name="sites",
-        help_text=_("Client this site belongs to"),
-    )
-    name = models.CharField(
-        max_length=300,
-        help_text=_("Site name"),
-    )
-    code = models.CharField(
-        max_length=50,
-        help_text=_("Site code (e.g., 'ZH' for Zhenhai, 'SH' for Shanghai)"),
-    )
-    location = models.CharField(
-        max_length=500,
-        blank=True,
-        help_text=_("Geographic location"),
-    )
-    address = models.TextField(
-        blank=True,
-        help_text=_("Site address"),
-    )
-    timezone = models.CharField(
-        max_length=50,
-        default="UTC",
-        help_text=_("Site timezone (e.g., 'Asia/Shanghai')"),
-    )
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="sites")
+    name = models.CharField(max_length=300)
+    code = models.CharField(max_length=50)
+    location = models.CharField(max_length=500, blank=True)
+    address = models.TextField(blank=True)
+    timezone = models.CharField(max_length=50, default="UTC")
 
     class Meta:
         verbose_name = _("Site")
@@ -105,7 +74,10 @@ class Site(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["client", "code"],
+                condition=ALIVE,
                 name="unique_site_code_per_client",
+                violation_error_code="ADM_SITE_CODE_DUPLICATE",
+                violation_error_message=_("Site code already exists for this client."),
             ),
         ]
 
@@ -113,39 +85,15 @@ class Site(TimeStampedModel):
         return f"{self.code} - {self.name}"
 
 
-class Plant(TimeStampedModel):
-    """
-    Plant - Factory/process unit within a site.
-    Hierarchy: Client → Site → Plant
-    """
+class Plant(TenantBaseModel):
+    """Plant / process unit (§15.4.4)."""
 
-    site = models.ForeignKey(
-        Site,
-        on_delete=models.CASCADE,
-        related_name="plants",
-        help_text=_("Site this plant belongs to"),
-    )
-    name = models.CharField(
-        max_length=300,
-        help_text=_("Plant name (e.g., 'Ethylene Plant', 'Aromatics Unit')"),
-    )
-    code = models.CharField(
-        max_length=50,
-        help_text=_("Plant code (e.g., 'ETH', 'ARO', 'P-001')"),
-    )
-    description = models.TextField(
-        blank=True,
-        help_text=_("Plant description"),
-    )
-    capacity = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text=_("Plant capacity (e.g., '1000 KTPA')"),
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text=_("Whether this plant is active"),
-    )
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="plants")
+    name = models.CharField(max_length=300)
+    code = models.CharField(max_length=50)
+    description = models.TextField(blank=True)
+    capacity = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = _("Plant")
@@ -154,7 +102,10 @@ class Plant(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["site", "code"],
+                condition=ALIVE,
                 name="unique_plant_code_per_site",
+                violation_error_code="ADM_PLANT_CODE_DUPLICATE",
+                violation_error_message=_("Plant code already exists for this site."),
             ),
         ]
 
@@ -162,16 +113,11 @@ class Plant(TimeStampedModel):
         return f"{self.code} - {self.name}"
 
 
-# =============================================================================
-# Plant Internal Hierarchy (MPTT)
-# =============================================================================
+class PlantHierarchy(MPTTModel, TenantBaseModel):
+    """PLANT → AREA → UNIT tree (§15.4.5). Instrument tags belong to a UNIT.
 
-
-class PlantHierarchy(MPTTModel, TimeStampedModel):
-    """
-    Plant Hierarchy using MPTT for efficient tree operations.
-    Structure: Plant -> Area -> Unit
-    All instrument tags must belong to a Unit.
+    ``plant`` links every node to its Plant; children inherit it from their
+    parent. Each Plant has exactly one live PLANT root node.
     """
 
     class NodeType(models.TextChoices):
@@ -179,35 +125,32 @@ class PlantHierarchy(MPTTModel, TimeStampedModel):
         AREA = "AREA", _("Area")
         UNIT = "UNIT", _("Unit")
 
-    name = models.CharField(
-        max_length=200,
-        help_text=_("Display name of the hierarchy node"),
+    plant = models.ForeignKey(
+        Plant,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="hierarchy_nodes",
+        help_text=_("Plant this node belongs to (required for PLANT roots)"),
     )
-    code = models.CharField(
-        max_length=50,
-        help_text=_("Short code/identifier (e.g., 'P-001', 'A-100', 'U-110')"),
-    )
-    node_type = models.CharField(
-        max_length=10,
-        choices=NodeType.choices,
-        help_text=_("Type of hierarchy node"),
-    )
+    name = models.CharField(max_length=200)
+    code = models.CharField(max_length=50)
+    node_type = models.CharField(max_length=10, choices=NodeType.choices)
     parent = TreeForeignKey(
         "self",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="children",
-        help_text=_("Parent node in the hierarchy"),
     )
-    description = models.TextField(
-        blank=True,
-        help_text=_("Detailed description of this node"),
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text=_("Whether this node is active"),
-    )
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    VALID_CHILDREN = {
+        NodeType.PLANT: [NodeType.AREA],
+        NodeType.AREA: [NodeType.UNIT],
+        NodeType.UNIT: [],
+    }
 
     class MPTTMeta:
         order_insertion_by = ["code"]
@@ -215,10 +158,21 @@ class PlantHierarchy(MPTTModel, TimeStampedModel):
     class Meta:
         verbose_name = _("Plant Hierarchy")
         verbose_name_plural = _("Plant Hierarchies")
+        default_manager_name = "objects"
         constraints = [
             models.UniqueConstraint(
                 fields=["parent", "code"],
+                condition=ALIVE,
                 name="unique_code_per_parent",
+                violation_error_code="ADM_HIERARCHY_CODE_DUPLICATE",
+                violation_error_message=_("Code already exists under this parent."),
+            ),
+            models.UniqueConstraint(
+                fields=["plant"],
+                condition=Q(parent__isnull=True, is_deleted=False),
+                name="unique_root_per_plant",
+                violation_error_code="ADM_HIERARCHY_ROOT_DUPLICATE",
+                violation_error_message=_("This plant already has a root node."),
             ),
         ]
 
@@ -226,25 +180,24 @@ class PlantHierarchy(MPTTModel, TimeStampedModel):
         return f"{self.code} - {self.name}"
 
     def clean(self):
-        """Validate hierarchy rules."""
         super().clean()
-
-        if self.parent:
-            parent_type = self.parent.node_type
-            valid_children = {
-                self.NodeType.PLANT: [self.NodeType.AREA],
-                self.NodeType.AREA: [self.NodeType.UNIT],
-                self.NodeType.UNIT: [],
-            }
-
-            if self.node_type not in valid_children.get(parent_type, []):
+        if self.parent_id:
+            parent = self.parent
+            if parent.is_deleted and not self.is_deleted:
+                raise ValidationError({"parent": _("Parent node has been deleted.")})
+            allowed = self.VALID_CHILDREN.get(parent.node_type, [])
+            if self.node_type not in allowed:
                 raise ValidationError(
                     {
                         "node_type": _(
-                            f"A {self.node_type} cannot be a child of a {parent_type}. "
-                            f"Valid children for {parent_type}: "
-                            f"{valid_children.get(parent_type, [])}"
+                            "A %(child)s cannot be a child of a %(parent)s. "
+                            "Valid children: %(allowed)s"
                         )
+                        % {
+                            "child": self.node_type,
+                            "parent": parent.node_type,
+                            "allowed": [str(a) for a in allowed],
+                        }
                     }
                 )
         else:
@@ -252,23 +205,40 @@ class PlantHierarchy(MPTTModel, TimeStampedModel):
                 raise ValidationError(
                     {"node_type": _("Only PLANT nodes can be root nodes (no parent).")}
                 )
+            if not self.plant_id:
+                raise ValidationError(
+                    {"plant": _("A PLANT root node must reference its Plant.")}
+                )
 
     def save(self, *args, **kwargs):
+        if self.parent_id:
+            self.plant_id = self.parent.plant_id
         self.full_clean()
         super().save(*args, **kwargs)
 
     @property
     def full_path(self):
-        """Return the full hierarchy path as a string."""
         ancestors = self.get_ancestors(include_self=True)
-        return " / ".join([node.code for node in ancestors])
+        return " / ".join(node.code for node in ancestors)
+
+    def hierarchy_codes(self) -> dict:
+        """Codes of site / plant / area / unit above (and including) this node."""
+        codes = {}
+        for node in self.get_ancestors(include_self=True):
+            codes[node.node_type.lower()] = node.code
+        if self.plant_id:
+            codes["plant"] = self.plant.code
+            codes["site"] = self.plant.site.code
+        return codes
 
 
-class Loop(TimeStampedModel):
-    """
-    Control Loop - groups related instrument tags.
-    A loop contains multiple tags (e.g., FE, FT, FIC, FV for a flow loop).
-    """
+# =============================================================================
+# Instrument index (simplified, pre-WP-04 — see OQ-008)
+# =============================================================================
+
+
+class Loop(TenantBaseModel):
+    """Control loop (IDX-07). Loop number unique within a Unit (§4.1.6)."""
 
     class Function(models.TextChoices):
         FLOW = "F", _("Flow")
@@ -282,49 +252,38 @@ class Loop(TimeStampedModel):
         SAFETY = "S", _("Safety")
         OTHER = "X", _("Other")
 
-    loop_tag = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text=_("Unique loop identifier (e.g., 'FIC-101', 'TIC-201')"),
-    )
-    function = models.CharField(
-        max_length=2,
-        choices=Function.choices,
-        help_text=_("Primary measured variable/function"),
-    )
-    suffix = models.CharField(
-        max_length=20,
-        blank=True,
-        help_text=_("Loop suffix/number (e.g., '101', '201A')"),
-    )
+    loop_tag = models.CharField(max_length=50, help_text=_("Loop number"))
+    function = models.CharField(max_length=2, choices=Function.choices)
+    suffix = models.CharField(max_length=20, blank=True)
     unit = models.ForeignKey(
         PlantHierarchy,
         on_delete=models.PROTECT,
         related_name="loops",
         limit_choices_to={"node_type": PlantHierarchy.NodeType.UNIT},
-        help_text=_("Unit this loop belongs to"),
     )
-    description = models.TextField(
-        blank=True,
-        help_text=_("Loop description/service"),
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text=_("Whether this loop is active"),
-    )
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = _("Loop")
         verbose_name_plural = _("Loops")
         ordering = ["loop_tag"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["unit", "loop_tag"],
+                condition=ALIVE,
+                name="unique_loop_per_unit",
+                violation_error_code="IDX_LOOP_DUPLICATE",
+                violation_error_message=_("Loop number already exists in this unit."),
+            ),
+        ]
 
     def __str__(self):
         return self.loop_tag
 
     def clean(self):
-        """Validate that unit is actually a UNIT type node."""
         super().clean()
-        if self.unit and self.unit.node_type != PlantHierarchy.NodeType.UNIT:
+        if self.unit_id and self.unit.node_type != PlantHierarchy.NodeType.UNIT:
             raise ValidationError(
                 {"unit": _("Loop must be assigned to a UNIT, not a PLANT or AREA.")}
             )
@@ -334,11 +293,8 @@ class Loop(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
-class InstrumentType(TimeStampedModel):
-    """
-    Instrument Type - defines the template for instrument specifications.
-    The schema_template defines what fields are required for this type.
-    """
+class InstrumentType(TenantBaseModel):
+    """Instrument (function) type with a JSON-Schema spec template (IDX-03)."""
 
     class Category(models.TextChoices):
         TRANSMITTER = "TRANSMITTER", _("Transmitter")
@@ -351,58 +307,49 @@ class InstrumentType(TimeStampedModel):
         RECORDER = "RECORDER", _("Recorder")
         OTHER = "OTHER", _("Other")
 
-    name = models.CharField(
-        max_length=200,
-        help_text=_("Full name of the instrument type"),
-    )
-    code = models.CharField(
-        max_length=20,
-        unique=True,
-        help_text=_("Short code (e.g., 'FT', 'TT', 'CV', 'PSV')"),
-    )
-    category = models.CharField(
-        max_length=20,
-        choices=Category.choices,
-        help_text=_("Instrument category"),
-    )
-    description = models.TextField(
-        blank=True,
-        help_text=_("Description of this instrument type"),
-    )
+    name = models.CharField(max_length=200)
+    code = models.CharField(max_length=20, help_text=_("e.g. 'FT', 'TT', 'CV'"))
+    category = models.CharField(max_length=20, choices=Category.choices)
+    description = models.TextField(blank=True)
     schema_template = models.JSONField(
         default=dict,
-        help_text=_(
-            "JSON Schema defining the required specification fields. "
-            "Example: {'type': 'object', 'properties': "
-            "{'range_min': {'type': 'number'}, ...}}"
-        ),
-    )
-    default_spec_data = models.JSONField(
-        default=dict,
         blank=True,
-        help_text=_("Default values for spec_data when creating new tags"),
+        help_text=_("JSON Schema for spec_data (empty = no constraints)"),
     )
-    is_active = models.BooleanField(
-        default=True,
-        help_text=_("Whether this instrument type is active"),
-    )
+    default_spec_data = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = _("Instrument Type")
         verbose_name_plural = _("Instrument Types")
         ordering = ["code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"],
+                condition=ALIVE,
+                name="unique_instrument_type_code",
+                violation_error_code="IDX_INSTRUMENT_TYPE_DUPLICATE",
+                violation_error_message=_("Instrument type code already exists."),
+            ),
+        ]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
 
+    def clean(self):
+        super().clean()
+        if self.schema_template:
+            try:
+                jsonschema.Draft202012Validator.check_schema(self.schema_template)
+            except jsonschema.SchemaError as exc:
+                raise ValidationError(
+                    {"schema_template": f"Invalid JSON Schema: {exc.message}"}
+                ) from exc
+
     def validate_spec_data(self, spec_data):
-        """
-        Validate spec_data against the schema_template.
-        Returns (is_valid, errors).
-        """
+        """Validate spec_data against schema_template → (is_valid, errors)."""
         if not self.schema_template:
             return True, []
-
         try:
             jsonschema.validate(instance=spec_data, schema=self.schema_template)
             return True, []
@@ -412,29 +359,21 @@ class InstrumentType(TimeStampedModel):
             return False, [f"Invalid schema: {e.message}"]
 
 
-class Tag(TimeStampedModel):
-    """
-    Instrument Tag - the core model representing an instrument.
-    Tag Number must be unique within a Unit.
-    """
+class Tag(TenantBaseModel):
+    """Instrument tag. Tag number unique within a Unit (§4.1.6)."""
 
     class Status(models.TextChoices):
         ACTIVE = "ACTIVE", _("Active")
         INACTIVE = "INACTIVE", _("Inactive")
-        DELETED = "DELETED", _("Deleted")
         PENDING = "PENDING", _("Pending")
         UNDER_REVIEW = "UNDER_REVIEW", _("Under Review")
 
-    tag_number = models.CharField(
-        max_length=50,
-        help_text=_("Instrument tag number (e.g., 'FT-101', 'TIC-201')"),
-    )
+    tag_number = models.CharField(max_length=50)
     unit = models.ForeignKey(
         PlantHierarchy,
         on_delete=models.PROTECT,
         related_name="tags",
         limit_choices_to={"node_type": PlantHierarchy.NodeType.UNIT},
-        help_text=_("Unit this tag belongs to (required)"),
     )
     loop = models.ForeignKey(
         Loop,
@@ -442,39 +381,19 @@ class Tag(TimeStampedModel):
         null=True,
         blank=True,
         related_name="tags",
-        help_text=_("Loop this tag belongs to (optional)"),
     )
     instrument_type = models.ForeignKey(
-        InstrumentType,
-        on_delete=models.PROTECT,
-        related_name="tags",
-        help_text=_("Type of instrument"),
+        InstrumentType, on_delete=models.PROTECT, related_name="tags"
     )
-    service = models.CharField(
-        max_length=500,
-        blank=True,
-        help_text=_("Service description (what the instrument measures/controls)"),
-    )
-    description = models.TextField(
-        blank=True,
-        help_text=_("Additional description or notes"),
-    )
+    service = models.CharField(max_length=500, blank=True)
+    description = models.TextField(blank=True)
     spec_data = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_(
-            "Specification data. Must conform to the instrument_type's schema_template."
-        ),
+        help_text=_("Must conform to the instrument type's schema_template"),
     )
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.ACTIVE,
-        help_text=_("Current status of the tag"),
-    )
-    revision = models.PositiveIntegerField(
-        default=1,
-        help_text=_("Revision number, incremented on each update"),
+        max_length=20, choices=Status.choices, default=Status.ACTIVE
     )
 
     class Meta:
@@ -484,7 +403,10 @@ class Tag(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["unit", "tag_number"],
+                condition=ALIVE,
                 name="unique_tag_per_unit",
+                violation_error_code="IDX_TAG_DUPLICATE",
+                violation_error_message=_("Tag number already exists in this unit."),
             ),
         ]
 
@@ -492,63 +414,98 @@ class Tag(TimeStampedModel):
         return self.tag_number
 
     def clean(self):
-        """Validate tag data integrity."""
         super().clean()
         errors = {}
-
-        # Validate unit is a UNIT type
-        if self.unit and self.unit.node_type != PlantHierarchy.NodeType.UNIT:
+        if self.unit_id and self.unit.node_type != PlantHierarchy.NodeType.UNIT:
             errors["unit"] = _("Tag must be assigned to a UNIT, not a PLANT or AREA.")
-
-        # Validate loop belongs to the same unit (if loop is set)
-        if self.loop and self.unit:
-            if self.loop.unit_id != self.unit_id:
-                errors["loop"] = _(
-                    "Loop must belong to the same unit as the tag. "
-                    f"Tag unit: {self.unit}, Loop unit: {self.loop.unit}"
-                )
-
-        # Validate spec_data against instrument_type schema
-        if self.instrument_type and self.spec_data:
+        if self.loop_id and self.unit_id and self.loop.unit_id != self.unit_id:
+            errors["loop"] = _(
+                "Loop must belong to the same unit as the tag. "
+                "Tag unit: %(tag)s, Loop unit: %(loop)s"
+            ) % {"tag": self.unit.code, "loop": self.loop.unit.code}
+        if self.instrument_type_id and self.spec_data:
             is_valid, validation_errors = self.instrument_type.validate_spec_data(
                 self.spec_data
             )
             if not is_valid:
-                errors["spec_data"] = _(
-                    f"Spec data validation failed: {'; '.join(validation_errors)}"
-                )
-
+                errors["spec_data"] = _("Spec data validation failed: %(e)s") % {
+                    "e": "; ".join(validation_errors)
+                }
         if errors:
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        # Increment revision on update (not on create)
-        if self.pk:
-            self.revision += 1
-
-        # Apply default spec_data from instrument_type if empty
-        if not self.spec_data and self.instrument_type:
-            self.spec_data = self.instrument_type.default_spec_data.copy()
-
+        if not self.spec_data and self.instrument_type_id:
+            self.spec_data = dict(self.instrument_type.default_spec_data or {})
         self.full_clean()
         super().save(*args, **kwargs)
 
     @property
     def full_tag(self):
-        """Return the full tag identifier including unit path."""
         return f"{self.unit.full_path} / {self.tag_number}"
 
 
 # =============================================================================
-# Naming Conventions (Tenant-specific)
+# Naming conventions (§15.5)
 # =============================================================================
 
+SEGMENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "segments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["name", "type"],
+                "properties": {
+                    "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+                    "display_name": {"type": "string"},
+                    "position": {"type": "integer", "minimum": 1},
+                    "type": {
+                        "enum": [
+                            "hierarchy",
+                            "function",
+                            "equipment",
+                            "sequence",
+                            "custom",
+                        ]
+                    },
+                    "source": {"type": "string"},
+                    "pattern": {"type": "string"},
+                    "min_length": {"type": "integer", "minimum": 0},
+                    "max_length": {"type": "integer", "minimum": 1},
+                    "case": {"enum": ["upper", "lower", "mixed"]},
+                    "allowed_values": {"type": "array", "items": {"type": "string"}},
+                    "required": {"type": "boolean"},
+                    "auto_fill": {"type": "boolean"},
+                    "editable": {"type": "boolean"},
+                    "default": {"type": "string"},
+                    "min_value": {"type": "integer"},
+                    "max_value": {"type": "integer"},
+                    "padding": {"type": "integer", "minimum": 0},
+                    "suffix_pattern": {"type": "string"},
+                    "auto_increment": {"type": "boolean"},
+                },
+            },
+        },
+        "separator": {"type": "string"},
+        "case_sensitive": {"type": "boolean"},
+        "prefix_source": {"enum": ["SITE", "PLANT", "AREA"]},
+    },
+    "additionalProperties": False,
+}
 
-class NamingConvention(TimeStampedModel):
-    """
-    NamingConvention - Defines tag naming rules for a project.
-    Stored in tenant schema - no project FK needed (implicit from schema).
-    """
+
+class NamingConvention(TenantBaseModel):
+    """Naming rule (§15.5.1). Lives in the tenant schema, so the ``project``
+    of the spec is implicit (§4.1.4)."""
+
+    class EntityType(models.TextChoices):
+        TAG = "TAG", _("Tag")
+        LOOP = "LOOP", _("Loop")
+        CABLE = "CABLE", _("Cable")
+        JUNCTION_BOX = "JUNCTION_BOX", _("Junction Box")
+        TERMINAL_STRIP = "TERMINAL_STRIP", _("Terminal Strip")
 
     class HierarchyFormat(models.TextChoices):
         FULL = "FULL", _("Site-Plant-Area-Unit-Function-Sequence")
@@ -558,77 +515,92 @@ class NamingConvention(TimeStampedModel):
         FLEXIBLE_PREFIX = "FLEXIBLE_PREFIX", _("XXXX-Unit-Function-Sequence")
         CUSTOM = "CUSTOM", _("Custom Regex")
 
-    name = models.CharField(
-        max_length=200,
-        help_text=_("Convention name (e.g., 'ISA-5.1 Standard')"),
-    )
-    description = models.TextField(
-        blank=True,
-        help_text=_("Convention description"),
+    name = models.CharField(max_length=200)
+    entity_type = models.CharField(
+        max_length=20, choices=EntityType.choices, default=EntityType.TAG
     )
     hierarchy_format = models.CharField(
         max_length=20,
         choices=HierarchyFormat.choices,
         default=HierarchyFormat.UNIT_ONLY,
-        help_text=_("Hierarchy format type"),
     )
-    regex_pattern = models.CharField(
-        max_length=500,
-        help_text=_(
-            "Regex pattern for validation. " "Example: ^[A-Z]{2,3}-\\d{3}[A-Z]?$"
-        ),
+    pattern = models.CharField(
+        max_length=500, help_text=_("Regular expression (named groups = segments)")
     )
-    segment_definitions = models.JSONField(
-        default=list,
+    pattern_template = models.CharField(
+        max_length=200,
         blank=True,
-        help_text=_(
-            "Segment definitions. Example: "
-            "[{'name': 'function', 'type': 'letters', 'length': 2}, ...]"
-        ),
+        help_text=_("e.g. {Plant}-{Unit}-{Function}-{Sequence}"),
     )
-    example_tags = models.JSONField(
-        default=list,
-        blank=True,
-        help_text=_("Example valid tags for this convention"),
-    )
-    is_default = models.BooleanField(
-        default=False,
-        help_text=_("Whether this is the default convention"),
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text=_("Whether this convention is active"),
+    segment_definitions = models.JSONField(default=dict, blank=True)
+    separator = models.CharField(max_length=5, default="-", blank=True)
+    description = models.TextField(blank=True)
+    examples = models.JSONField(default=list, blank=True)
+    validation_message = models.CharField(max_length=300, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    priority = models.IntegerField(
+        default=100, help_text=_("Lower value = matched first")
     )
 
     class Meta:
         verbose_name = _("Naming Convention")
         verbose_name_plural = _("Naming Conventions")
-        ordering = ["-is_default", "name"]
+        ordering = ["entity_type", "-is_default", "priority", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entity_type"],
+                condition=Q(is_default=True, is_deleted=False),
+                name="unique_default_naming_per_entity",
+                violation_error_code="ADM_NAMING_DEFAULT_DUPLICATE",
+                violation_error_message=_(
+                    "Only one default naming convention per entity type."
+                ),
+            ),
+        ]
 
     def __str__(self):
         return self.name
 
-    def validate_tag_number(self, tag_number: str) -> tuple[bool, str]:
-        """Validate a tag number against this convention."""
-        import re
+    @property
+    def segments(self) -> list:
+        return list((self.segment_definitions or {}).get("segments", []))
 
+    @property
+    def case_sensitive(self) -> bool:
+        return bool((self.segment_definitions or {}).get("case_sensitive", False))
+
+    def compiled(self):
+        flags = 0 if self.case_sensitive else re.IGNORECASE
+        return re.compile(self.pattern, flags)
+
+    def clean(self):
+        super().clean()
+        errors = {}
         try:
-            pattern = re.compile(self.regex_pattern)
-            if pattern.match(tag_number):
-                return True, ""
-            else:
-                return (
-                    False,
-                    f"Tag number '{tag_number}' does not match pattern: "
-                    f"{self.regex_pattern}",
-                )
-        except re.error as e:
-            return False, f"Invalid regex pattern: {e}"
+            re.compile(self.pattern or "")
+        except re.error as exc:
+            errors["pattern"] = _("Invalid regular expression: %(e)s") % {"e": exc}
+        if not self.pattern:
+            errors["pattern"] = _("Pattern is required.")
+        if isinstance(self.segment_definitions, list):
+            self.segment_definitions = {"segments": self.segment_definitions}
+        try:
+            jsonschema.validate(self.segment_definitions or {}, SEGMENT_SCHEMA)
+        except jsonschema.ValidationError as exc:
+            errors["segment_definitions"] = exc.message
+        if not isinstance(self.examples, list):
+            errors["examples"] = _("Must be a list of strings.")
+        if errors:
+            raise ValidationError(errors)
 
-    def save(self, *args, **kwargs):
-        # Ensure only one default convention
-        if self.is_default:
-            NamingConvention.objects.filter(is_default=True).exclude(pk=self.pk).update(
-                is_default=False
-            )
-        super().save(*args, **kwargs)
+    def validate_tag_number(self, tag_number: str) -> tuple[bool, str]:
+        """Pattern-only check → (is_valid, message)."""
+        try:
+            if self.compiled().fullmatch(tag_number or ""):
+                return True, ""
+        except re.error as exc:
+            return False, f"Invalid regex pattern: {exc}"
+        return False, self.validation_message or (
+            f"'{tag_number}' does not match pattern {self.pattern}"
+        )
