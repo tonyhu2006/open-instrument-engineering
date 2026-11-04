@@ -3,7 +3,7 @@ Tenant Serializers - API serializers for project tenant management.
 """
 
 from rest_framework import serializers
-from .models import ProjectTenant, ProjectDomain
+from .models import ProjectTenant
 
 
 class ProjectTenantSerializer(serializers.ModelSerializer):
@@ -42,11 +42,3 @@ class ProjectTenantCreateSerializer(serializers.ModelSerializer):
         if ProjectTenant.objects.filter(project_no=value).exists():
             raise serializers.ValidationError("Project number already exists.")
         return value
-
-
-class ProjectDomainSerializer(serializers.ModelSerializer):
-    """Serializer for ProjectDomain."""
-    
-    class Meta:
-        model = ProjectDomain
-        fields = ['id', 'domain', 'tenant', 'is_primary']

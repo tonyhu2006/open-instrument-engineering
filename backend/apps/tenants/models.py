@@ -98,10 +98,22 @@ class ProjectTenant(TenantMixin, TimeStampedModel):
 
 class ProjectDomain(DomainMixin):
     """
-    ProjectDomain - Maps domains/subdomains to project tenants.
-    
-    For API-based access, we use a header-based tenant selection,
-    but domains can be used for direct project access.
+    ProjectDomain - django-tenants contract model. NOT used at runtime.
+
+    This project routes tenants via the X-Project-ID HTTP header
+    (see apps.tenants.middleware.HeaderBasedTenantMiddleware), NOT via
+    Host-header / subdomain matching. Therefore this model has no
+    operational role: rows here are never queried during request handling.
+
+    The class is preserved only because django-tenants requires
+    settings.TENANT_DOMAIN_MODEL to point at a concrete subclass of
+    DomainMixin. Removing the class would force a fork of django-tenants.
+
+    Operationally this table SHOULD remain empty. The model is therefore
+    not registered in Django admin and exposes no DRF endpoint. If the
+    deployment ever migrates to subdomain-based routing, switch the
+    middleware back to django_tenants.middleware.TenantMainMiddleware
+    and populate this table accordingly.
     """
     
     class Meta:

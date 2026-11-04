@@ -2,17 +2,18 @@
 Tenant Views - API views for project tenant management.
 """
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import connection
 
-from .models import ProjectTenant, ProjectDomain
+from apps.administration.access import user_accessible_project_ids
+
+from .models import ProjectTenant
 from .serializers import (
     ProjectTenantSerializer,
     ProjectTenantCreateSerializer,
-    ProjectDomainSerializer,
 )
 
 
@@ -30,15 +31,19 @@ class ProjectTenantViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """Filter projects by user's organization."""
+        """
+        Filter projects by TaskForce membership per SPECIFICATION.md §3.1.0.5.6.
+        Administrator / superuser see all projects; all other users only see
+        projects they are a member or leader of via ProjectTaskForce.
+        """
         user = self.request.user
-        if user.is_superuser:
+        accessible = user_accessible_project_ids(user)
+        if accessible is None:
+            # Admin bypass
             return ProjectTenant.objects.all()
-        
-        if hasattr(user, 'organization_id') and user.organization_id:
-            return ProjectTenant.objects.filter(organization_id=user.organization_id)
-        
-        return ProjectTenant.objects.none()
+        if not accessible:
+            return ProjectTenant.objects.none()
+        return ProjectTenant.objects.filter(pk__in=accessible)
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -82,9 +87,3 @@ class ProjectTenantViewSet(viewsets.ModelViewSet):
         })
 
 
-class ProjectDomainViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing ProjectDomains."""
-    
-    queryset = ProjectDomain.objects.all()
-    serializer_class = ProjectDomainSerializer
-    permission_classes = [IsAuthenticated]
