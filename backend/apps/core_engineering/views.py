@@ -7,7 +7,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import (
@@ -52,7 +51,6 @@ class PlantHierarchyViewSet(viewsets.ModelViewSet):
 
     queryset = PlantHierarchy.objects.all()
     serializer_class = PlantHierarchySerializer
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -116,7 +114,6 @@ class LoopViewSet(viewsets.ModelViewSet):
 
     queryset = Loop.objects.select_related("unit").all()
     serializer_class = LoopSerializer
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -155,7 +152,6 @@ class InstrumentTypeViewSet(viewsets.ModelViewSet):
     """
 
     queryset = InstrumentType.objects.all()
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -213,7 +209,6 @@ class TagViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Tag.objects.select_related("unit", "loop", "instrument_type").all()
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated in production
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -322,7 +317,6 @@ class ClientViewSet(viewsets.ModelViewSet):
 
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ["code", "name"]
     ordering = ["name"]
@@ -333,7 +327,6 @@ class SiteViewSet(viewsets.ModelViewSet):
 
     queryset = Site.objects.select_related("client").all()
     serializer_class = SiteSerializer
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["client"]
     search_fields = ["code", "name", "location"]
@@ -345,7 +338,6 @@ class PlantViewSet(viewsets.ModelViewSet):
 
     queryset = Plant.objects.select_related("site").all()
     serializer_class = PlantSerializer
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["site", "is_active"]
     search_fields = ["code", "name"]
@@ -357,7 +349,6 @@ class NamingConventionViewSet(viewsets.ModelViewSet):
 
     queryset = NamingConvention.objects.all()
     serializer_class = NamingConventionSerializer
-    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["hierarchy_format", "is_default", "is_active"]
     search_fields = ["name"]
