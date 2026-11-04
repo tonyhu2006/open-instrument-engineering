@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Loader2, AlertCircle } from 'lucide-react'
-import { authApi } from '@/lib/api'
+import { apiError, authApi } from '@/lib/api'
 
 export function LoginPage() {
   const { t } = useTranslation()
@@ -25,8 +25,7 @@ export function LoginPage() {
       localStorage.setItem('refresh_token', response.refresh)
       navigate('/')
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { detail?: string } } }
-      setError(errorObj.response?.data?.detail || t('login.failed'))
+      setError(apiError(err)?.message || t('login.failed'))
     } finally {
       setIsLoading(false)
     }

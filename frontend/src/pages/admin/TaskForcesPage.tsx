@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/dialog'
 import { RoleGuard } from '@/components/auth'
 import {
+  apiError,
+  apiErrorMessage,
   taskForceApi,
   userApi,
   projectTenantApi,
@@ -89,7 +91,7 @@ function TaskForcesPageInner() {
     const q = search.trim().toLowerCase()
     if (!q) return data
     return data.filter((tf) => {
-      const proj = projectById.get(tf.project_id)
+      const proj = tf.project_id !== null ? projectById.get(tf.project_id) : undefined
       return (
         tf.code.toLowerCase().includes(q) ||
         tf.name.toLowerCase().includes(q) ||
@@ -99,36 +101,49 @@ function TaskForcesPageInner() {
     })
   }, [data, search, projectById])
 
+  // ADM-TF01: Administrators may create an empty group and assign the project
+  // later; Project Engineers / Managers must start from an existing project.
+  const projectRequired = !perms.isAdmin
+
   const handleSave = async () => {
     if (!editing) return
-    if (!editing.project_id) {
+    if (projectRequired && !editing.project_id) {
       alert(t('taskforce.errors.selectProject'))
       return
     }
     setSaving(true)
     try {
-      const payload = { ...editing, project_id: editing.project_id }
       if (editing.id) {
+        // Only administrators may relink the project or change the leader.
+        const payload: Partial<ProjectTaskForce> = perms.isAdmin
+          ? {
+              code: editing.code,
+              name: editing.name,
+              description: editing.description,
+              is_active: editing.is_active,
+              project_id: editing.project_id ?? null,
+              leader: editing.leader ?? null,
+            }
+          : {
+              code: editing.code,
+              name: editing.name,
+              description: editing.description,
+              is_active: editing.is_active,
+            }
         await taskForceApi.update(editing.id, payload)
       } else {
-        await taskForceApi.create(payload)
+        await taskForceApi.create({ ...editing, project_id: editing.project_id ?? null })
       }
       setEditing(null)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      const data = err.response?.data as
-        | { non_field_errors?: string[]; detail?: string; [k: string]: unknown }
-        | undefined
-      const nonField = data?.non_field_errors?.[0] ?? ''
-      if (/unique/i.test(nonField)) {
+      const err = apiError(e)
+      if (err?.code === 'ADM_TASK_FORCE_PROJECT_TAKEN') {
         const projName =
-          projects.find((p) => p.id === editing.project_id)?.project_no ?? '(selected project)'
-        alert(
-          t('taskforce.errors.duplicateCode', { code: editing.code, project: projName }),
-        )
+          projects.find((p) => p.id === editing.project_id)?.project_no ?? '—'
+        alert(t('taskforce.errors.projectTaken', { project: projName }))
       } else {
-        alert(`${t('common.saveFailed')}: ${JSON.stringify(data ?? e)}`)
+        alert(`${t('common.saveFailed')}: ${apiErrorMessage(e)}`)
       }
     } finally {
       setSaving(false)
@@ -141,8 +156,7 @@ function TaskForcesPageInner() {
       await taskForceApi.delete(tf.id)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.deleteFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.deleteFailed')}: ${apiErrorMessage(e)}`)
     }
   }
 
@@ -152,6 +166,11 @@ function TaskForcesPageInner() {
       header: t('taskforce.columns.project'),
       width: '260px',
       render: (r) => {
+        if (r.project_id === null) {
+          return (
+            <span className="text-xs text-muted-foreground">{t('taskforce.unassigned')}</span>
+          )
+        }
         const proj = projectById.get(r.project_id)
         if (!proj) {
           return (
@@ -182,7 +201,7 @@ function TaskForcesPageInner() {
         r.leader_name ? (
           <span>
             {r.leader_name}
-            {currentUser && r.leader === currentUser.id && (
+            {currentUser && r.created_by === currentUser.id && (
               <Badge variant="outline" className="ml-2 text-xs">
                 {t('taskforce.createdByMe')}
               </Badge>
@@ -215,14 +234,17 @@ function TaskForcesPageInner() {
         onSearchChange={setSearch}
         searchPlaceholder={t('taskforce.searchPlaceholder')}
         onRefresh={load}
-        onCreate={() =>
-          setEditing({
-            project_id: projectId,
-            code: '',
-            name: '',
-            description: '',
-            is_active: true,
-          })
+        onCreate={
+          perms.canManageTaskForces
+            ? () =>
+                setEditing({
+                  project_id: projectId ?? null,
+                  code: '',
+                  name: '',
+                  description: '',
+                  is_active: true,
+                })
+            : undefined
         }
         createLabel={t('taskforce.createLabel')}
       />
@@ -235,7 +257,7 @@ function TaskForcesPageInner() {
         error={error}
         rowKey={(r) => r.id}
         actions={(r) => {
-          const canEdit = perms.canEditOwnTaskForce(r.leader)
+          const canEdit = perms.canEditOwnTaskForce(r.created_by)
           return (
             <>
               <Button
@@ -309,20 +331,22 @@ function TaskForcesPageInner() {
               </div>
               <div className="grid gap-1.5">
                 <Label>
-                  {t('taskforce.fields.project')} {t('common.required')}
+                  {t('taskforce.fields.project')} {projectRequired && t('common.required')}
                 </Label>
                 <Select
                   value={editing.project_id ? String(editing.project_id) : ''}
                   onChange={(e) =>
                     setEditing({
                       ...editing,
-                      project_id: e.target.value ? Number(e.target.value) : undefined,
+                      project_id: e.target.value ? Number(e.target.value) : null,
                     })
                   }
-                  disabled={!perms.isAdmin || !!editing.id}
+                  disabled={!!editing.id && !perms.isAdmin}
                 >
-                  <option value="" disabled>
-                    {t('taskforce.selectProjectPlaceholder')}
+                  <option value="" disabled={projectRequired}>
+                    {projectRequired
+                      ? t('taskforce.selectProjectPlaceholder')
+                      : t('taskforce.unassigned')}
                   </option>
                   {projects.map((p) => (
                     <option key={p.id} value={String(p.id)}>
@@ -330,7 +354,7 @@ function TaskForcesPageInner() {
                     </option>
                   ))}
                 </Select>
-                {editing.id && (
+                {editing.id && !perms.isAdmin && (
                   <p className="text-xs text-muted-foreground">
                     {t('taskforce.projectLockedHint')}
                   </p>
@@ -371,7 +395,12 @@ function TaskForcesPageInner() {
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || !editing.code || !editing.name || !editing.project_id}
+                disabled={
+                  saving ||
+                  !editing.code ||
+                  !editing.name ||
+                  (projectRequired && !editing.project_id)
+                }
               >
                 {saving ? t('common.saving') : t('common.save')}
               </Button>

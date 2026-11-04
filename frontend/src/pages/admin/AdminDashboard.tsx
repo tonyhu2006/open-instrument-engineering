@@ -85,7 +85,7 @@ export function AdminDashboard() {
             value={perms.roleName || t('admin.role.unassigned')}
             hint={`Level ${perms.level}`}
           />
-          <Stat label={t('admin.stat.discipline')} value={disciplineLabel(perms.discipline, t)} />
+          <Stat label={t('admin.stat.discipline')} value={disciplineLabel(perms, t)} />
           <Stat
             label={t('admin.stat.accessibleModules')}
             value={String(MODULES.filter((m) => m.visible(perms)).length)}
@@ -201,18 +201,15 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   )
 }
 
+/** Disciplines the user may write, derived from the permission matrix (D5). */
 function disciplineLabel(
-  d: ReturnType<typeof usePermissions>['discipline'],
+  perms: ReturnType<typeof usePermissions>,
   t: (key: string) => string,
 ): string {
-  switch (d) {
-    case 'INSTRUMENTATION':
-      return t('admin.discipline.instrumentation')
-    case 'PROCESS':
-      return t('admin.discipline.process')
-    case 'MECHANICAL':
-      return t('admin.discipline.mechanical')
-    default:
-      return t('admin.discipline.generic')
-  }
+  const writable = [
+    perms.canEditInstrumentation && t('admin.discipline.instrumentation'),
+    perms.canEditProcess && t('admin.discipline.process'),
+    perms.canEditMechanical && t('admin.discipline.mechanical'),
+  ].filter(Boolean)
+  return writable.length ? writable.join(' / ') : t('admin.discipline.generic')
 }

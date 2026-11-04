@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { RoleGuard } from '@/components/auth'
-import { organizationCrudApi, type Organization } from '@/lib/api'
+import { apiErrorMessage, organizationCrudApi, type Organization } from '@/lib/api'
 import { AdminTable, type AdminColumn } from './components/AdminTable'
 import { AdminPageHeader } from './components/AdminPageHeader'
 
@@ -71,8 +71,7 @@ function OrganizationsPageInner() {
       setEditing(null)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.saveFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.saveFailed')}: ${apiErrorMessage(e)}`)
     } finally {
       setSaving(false)
     }
@@ -84,8 +83,7 @@ function OrganizationsPageInner() {
       await organizationCrudApi.delete(org.id)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.deleteFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.deleteFailed')}: ${apiErrorMessage(e)}`)
     }
   }
 

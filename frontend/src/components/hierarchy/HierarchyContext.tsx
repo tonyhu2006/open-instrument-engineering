@@ -108,9 +108,12 @@ export function HierarchyProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedSite])
 
+  // Clients live in the project schema selected by X-Project-ID; the id is
+  // only used to sequence the effect (§4.1.4).
   const loadClients = async (projectId: number) => {
+    void projectId
     try {
-      const data = await clientApi.list(projectId)
+      const data = await clientApi.list()
       setClients(data)
       // Auto-select first client if available
       if (data.length > 0) {

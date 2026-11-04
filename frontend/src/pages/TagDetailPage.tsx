@@ -10,7 +10,12 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { engineeringApi, type Tag } from '@/lib/api'
+import {
+  apiErrorMessage,
+  engineeringApi,
+  isRowVersionConflict,
+  type Tag,
+} from '@/lib/api'
 
 interface SpecField {
   key: string
@@ -47,6 +52,8 @@ export function TagDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [conflict, setConflict] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
   const loadTag = useCallback(async (tagId: number) => {
@@ -76,13 +83,23 @@ export function TagDetailPage() {
 
   const handleSave = async () => {
     if (!tag) return
-    
+
     setSaving(true)
+    setSaveError(null)
+    setConflict(false)
     try {
-      await engineeringApi.tags.update(tag.id, { spec_data: specData })
+      // §4.1.3: send the row_version we loaded; the server answers 409 if
+      // someone else saved in the meantime.
+      const updated = await engineeringApi.tags.update(tag.id, {
+        spec_data: specData,
+        expected_row_version: tag.row_version,
+      })
+      setTag(updated)
+      setSpecData(updated.spec_data || {})
       setIsDirty(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('tagDetail.saveFailed'))
+      setConflict(isRowVersionConflict(err))
+      setSaveError(apiErrorMessage(err, t('tagDetail.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -135,7 +152,18 @@ export function TagDetailPage() {
           }`}>
             {t(`instruments.status.${tag.status}`, { defaultValue: tag.status })}
           </span>
-          <span className="text-sm text-muted-foreground">{t('tagDetail.revision', { n: tag.revision })}</span>
+          <span className="text-sm text-muted-foreground">{t('tagDetail.revision', { n: tag.row_version })}</span>
+          {saveError && (
+            <span className="flex items-center gap-2 text-sm text-red-600">
+              <AlertCircle className="h-4 w-4" />
+              {saveError}
+              {conflict && (
+                <Button variant="outline" size="sm" onClick={() => loadTag(tag.id)}>
+                  {t('common.reload')}
+                </Button>
+              )}
+            </span>
+          )}
         </div>
         
         <div className="flex items-center gap-2">

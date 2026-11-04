@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog'
 import { RoleGuard } from '@/components/auth'
 import {
+  apiErrorMessage,
   projectTenantApi,
   clientApi,
   siteApi,
@@ -52,9 +53,6 @@ interface EditingState {
   type: NodeType
   data: Partial<Client & Site & Plant & PlantHierarchy>
   parentId?: number // client id (for site) / site id (for plant) / hierarchy parent id (for area/unit)
-  // For area: the matching Plant model code, used to lazily create the PLANT root if missing
-  plantCodeForRoot?: string
-  plantNameForRoot?: string
 }
 
 export function ProjectHierarchyPage() {
@@ -157,13 +155,13 @@ function ProjectHierarchyInner() {
     return map
   }, [plants])
 
-  // PLANT root nodes (parent=null, node_type=PLANT) indexed by code — used to
-  // bridge Plant model rows to their MPTT subtree via code matching.
-  const plantRootByCode = useMemo(() => {
-    const map = new Map<string, PlantHierarchy>()
+  // PLANT root nodes indexed by their Plant (§15.4.5 `PlantHierarchy.plant`
+  // FK). The backend creates exactly one root per Plant.
+  const plantRootByPlant = useMemo(() => {
+    const map = new Map<number, PlantHierarchy>()
     for (const n of hierarchyNodes) {
-      if (n.node_type === 'PLANT' && n.parent === null) {
-        map.set(n.code, n)
+      if (n.node_type === 'PLANT' && n.parent === null && n.plant !== null) {
+        map.set(n.plant, n)
       }
     }
     return map
@@ -227,26 +225,16 @@ function ProjectHierarchyInner() {
             name: d.name,
             description: d.description,
             is_active: d.is_active,
+            expected_row_version: d.row_version,
           })
         } else {
-          // Lazy-create the PLANT root when adding the first AREA under a Plant
-          let parentId = editing.parentId
-          if (!parentId && editing.plantCodeForRoot) {
-            const root = await plantHierarchyApi.create({
-              code: editing.plantCodeForRoot,
-              name: editing.plantNameForRoot ?? editing.plantCodeForRoot,
-              node_type: 'PLANT',
-              parent: null,
-              is_active: true,
-            })
-            parentId = root.id
-          }
+          // parentId is the Plant's PLANT root node (created by the backend)
           await plantHierarchyApi.create({
             code: d.code,
             name: d.name,
             description: d.description,
             node_type: 'AREA',
-            parent: parentId ?? null,
+            parent: editing.parentId ?? null,
             is_active: d.is_active ?? true,
           })
         }
@@ -257,6 +245,7 @@ function ProjectHierarchyInner() {
             name: d.name,
             description: d.description,
             is_active: d.is_active,
+            expected_row_version: d.row_version,
           })
         } else {
           await plantHierarchyApi.create({
@@ -272,8 +261,7 @@ function ProjectHierarchyInner() {
       setEditing(null)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.saveFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.saveFailed')}: ${apiErrorMessage(e)}`)
     } finally {
       setSaving(false)
     }
@@ -303,8 +291,8 @@ function ProjectHierarchyInner() {
       else await plantHierarchyApi.delete(node.id) // area / unit
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.deleteFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      // 409 *_DELETE_PROTECTED: tags/loops still reference the subtree
+      alert(`${t('common.deleteFailed')}: ${apiErrorMessage(e)}`)
     }
   }
 
@@ -536,7 +524,9 @@ function ProjectHierarchyInner() {
                             sitePlants.map((plant) => {
                               const plantKey = `plant-${plant.id}`
                               const isPlantExpanded = expanded.has(plantKey)
-                              const plantRoot = plantRootByCode.get(plant.code)
+                              const plantRoot =
+                                plantRootByPlant.get(plant.id) ??
+                                hierarchyNodes.find((n) => n.id === plant.root_node)
                               const areas = plantRoot
                                 ? areasByPlantRoot.get(plantRoot.id) ?? []
                                 : []
@@ -569,9 +559,7 @@ function ProjectHierarchyInner() {
                                           onClick={() =>
                                             setEditing({
                                               type: 'area',
-                                              parentId: plantRoot?.id,
-                                              plantCodeForRoot: plant.code,
-                                              plantNameForRoot: plant.name,
+                                              parentId: plantRoot?.id ?? plant.root_node ?? undefined,
                                               data: {
                                                 code: '',
                                                 name: '',
@@ -1008,11 +996,6 @@ function EditDialogContent({
               />
               {t('hierarchy.checkbox.isActive')}
             </label>
-            {isNew && !editing.parentId && editing.type === 'area' && editing.plantCodeForRoot && (
-              <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                {t('hierarchy.lazyPlantRoot', { code: editing.plantCodeForRoot })}
-              </p>
-            )}
           </>
         )}
       </div>
