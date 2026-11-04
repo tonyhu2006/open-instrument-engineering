@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from 'react'
 import { authApi, type UserProfile } from '@/lib/api'
 
 interface AuthContextType {
@@ -19,15 +19,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Check if we have a token and try to fetch user
-    const token = localStorage.getItem('access_token')
-    if (token && !user) {
-      fetchUser()
-    }
+  const logout = useCallback(() => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    setUser(null)
+    setIsAuthenticated(false)
+    setError(null)
   }, [])
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const userData = await authApi.me()
       setUser(userData)
@@ -35,7 +35,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Token is invalid, logout
       logout()
     }
-  }
+  }, [logout])
+
+  useEffect(() => {
+    // Check if we have a token and try to fetch user
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      // Token is invalid → logout
+      authApi.me().then(setUser).catch(logout)
+    }
+  }, [logout])
 
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true)
@@ -61,14 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(false)
       return false
     }
-  }
-
-  const logout = () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    setUser(null)
-    setIsAuthenticated(false)
-    setError(null)
   }
 
   const clearError = () => setError(null)

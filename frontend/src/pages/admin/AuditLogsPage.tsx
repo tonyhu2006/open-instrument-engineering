@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { RoleGuard } from '@/components/auth'
@@ -20,7 +20,7 @@ function AuditLogsPageInner() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -30,11 +30,11 @@ function AuditLogsPageInner() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const actionColor = (action: string) => {
     switch (action.toUpperCase()) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Edit, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ function OrganizationsPageInner() {
   const [editing, setEditing] = useState<Partial<Organization> | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -45,11 +45,11 @@ function OrganizationsPageInner() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

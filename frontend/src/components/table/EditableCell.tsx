@@ -49,7 +49,7 @@ export function EditableCell({
       setIsSaving(true)
       try {
         await onSave(rowId, columnId, value)
-      } catch (error) {
+      } catch {
         setValue(initialValue) // Revert on error
       } finally {
         setIsSaving(false)

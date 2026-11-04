@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { 
@@ -49,13 +49,7 @@ export function TagDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
 
-  useEffect(() => {
-    if (id) {
-      loadTag(parseInt(id))
-    }
-  }, [id])
-
-  const loadTag = async (tagId: number) => {
+  const loadTag = useCallback(async (tagId: number) => {
     setLoading(true)
     setError(null)
     try {
@@ -67,7 +61,13 @@ export function TagDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
+
+  useEffect(() => {
+    if (id) {
+      loadTag(parseInt(id))
+    }
+  }, [id, loadTag])
 
   const handleFieldChange = (key: string, value: unknown) => {
     setSpecData(prev => ({ ...prev, [key]: value }))

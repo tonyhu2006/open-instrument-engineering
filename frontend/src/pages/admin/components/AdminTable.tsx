@@ -66,40 +66,22 @@ export function AdminTable<T>({
   const { t } = useTranslation()
   const { save: syncSave } = useTablePreferencesSync()
   const effectiveEmptyMessage = emptyMessage ?? t('table.noData')
-  // Per-column widths (px). Initialised from column.width when first seen,
-  // overridden by any value previously persisted in localStorage.
-  const [widths, setWidths] = useState<Record<string, number>>(() => {
-    const init: Record<string, number> = {}
-    for (const c of columns) init[c.key] = parseInitialWidth(c.width)
-    if (actions) init.__actions__ = ACTIONS_COL_WIDTH
-    const stored = loadStoredWidths(storageKey)
-    return stored ? { ...init, ...stored } : init
-  })
-
-  // Re-sync when the set of columns changes (new key appears)
-  useEffect(() => {
-    setWidths((prev) => {
-      const next = { ...prev }
-      let changed = false
-      for (const c of columns) {
-        if (next[c.key] === undefined) {
-          next[c.key] = parseInitialWidth(c.width)
-          changed = true
-        }
-      }
-      if (actions && next.__actions__ === undefined) {
-        next.__actions__ = ACTIONS_COL_WIDTH
-        changed = true
-      }
-      return changed ? next : prev
-    })
-  }, [columns, actions])
+  // Per-column widths (px). Defaults come from column.width (derived on every
+  // render, so newly added columns pick up their default automatically);
+  // user-resized / persisted values override them.
+  const [overrides, setWidths] = useState<Record<string, number>>(
+    () => loadStoredWidths(storageKey) ?? {},
+  )
+  const widths: Record<string, number> = {}
+  for (const c of columns) widths[c.key] = parseInitialWidth(c.width)
+  if (actions) widths.__actions__ = ACTIONS_COL_WIDTH
+  Object.assign(widths, overrides)
 
   // Persist widths whenever they change (localStorage + debounced server sync)
   useEffect(() => {
-    if (!storageKey) return
-    syncSave(storageKey, widths)
-  }, [widths, storageKey, syncSave])
+    if (!storageKey || !Object.keys(overrides).length) return
+    syncSave(storageKey, overrides)
+  }, [overrides, storageKey, syncSave])
 
   const draggingRef = useRef<{
     key: string

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from 'react'
 import {
   projectApi,
   clientApi,
@@ -53,15 +53,28 @@ export function HierarchyProvider({ children }: { children: ReactNode }) {
   
   const [isLoading, setIsLoading] = useState(false)
 
-  // Check if user is authenticated
-  const isAuthenticated = () => !!localStorage.getItem('access_token')
+  const loadProjects = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const data = await projectApi.list()
+      setProjects(data)
+      // Auto-select first project if available
+      if (data.length > 0) {
+        setSelectedProject((prev) => prev ?? data[0])
+      }
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   // Load projects on mount (only if authenticated)
   useEffect(() => {
-    if (isAuthenticated()) {
+    if (localStorage.getItem('access_token')) {
       loadProjects()
     }
-  }, [])
+  }, [loadProjects])
 
   // Load clients when project changes; also sync the X-Project-ID header
   // so subsequent tenant-aware API calls hit the correct schema.
@@ -94,22 +107,6 @@ export function HierarchyProvider({ children }: { children: ReactNode }) {
       setSelectedPlant(null)
     }
   }, [selectedSite])
-
-  const loadProjects = async () => {
-    setIsLoading(true)
-    try {
-      const data = await projectApi.list()
-      setProjects(data)
-      // Auto-select first project if available
-      if (data.length > 0 && !selectedProject) {
-        setSelectedProject(data[0])
-      }
-    } catch (error) {
-      console.error('Failed to load projects:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const loadClients = async (projectId: number) => {
     try {

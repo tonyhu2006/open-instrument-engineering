@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +13,7 @@ export function StatusPage() {
   const [error, setError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
 
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     try {
       setLoading(true)
       const data = await healthCheck()
@@ -26,11 +26,11 @@ export function StatusPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     fetchHealth()
-  }, [])
+  }, [fetchHealth])
 
   const getStatusIcon = (status: string) => {
     if (status === 'connected' || status === 'healthy') {

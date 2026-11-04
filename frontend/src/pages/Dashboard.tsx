@@ -29,7 +29,7 @@ export function Dashboard() {
     fetchHealth()
     const interval = setInterval(fetchHealth, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [t])
 
   const getStatusBadge = (status: string) => {
     if (status === 'connected' || status === 'healthy') {

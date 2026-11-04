@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useCallback, useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -41,7 +41,7 @@ export function InstrumentsPage() {
   const [globalFilter, setGlobalFilter] = useState('')
   const [rowSelection, setRowSelection] = useState({})
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -64,12 +64,12 @@ export function InstrumentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProject, selectedClient, selectedSite, selectedPlant, t])
 
   // Refetch when hierarchy selection changes
   useEffect(() => {
     fetchData()
-  }, [selectedProject, selectedClient, selectedSite, selectedPlant])
+  }, [fetchData])
 
   const columns = useMemo<ColumnDef<Tag>[]>(
     () => [

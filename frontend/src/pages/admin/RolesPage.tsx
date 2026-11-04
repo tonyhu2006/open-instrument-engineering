@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Edit, Trash2, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -40,7 +40,7 @@ function RolesPageInner() {
   const [saving, setSaving] = useState(false)
   const [permJson, setPermJson] = useState('{}')
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -55,11 +55,11 @@ function RolesPageInner() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

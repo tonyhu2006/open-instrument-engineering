@@ -22,6 +22,7 @@ export function VirtualTable<T>({
 
   const { rows } = table.getRowModel()
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual is not React Compiler compatible; compiler skips this component
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => tableContainerRef.current,
