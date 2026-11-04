@@ -395,3 +395,24 @@ ProjectMembership 自项目改用 `ProjectTaskForce + TaskForceMembership` 体�
 | Administrator | 全部项目 | 全部项目（不变） |
 | 跨 org 加入 TaskForce | 不可见 | 可见对应项目 |
 | 伪造 X-Project-ID | 切换成功，可读租户数据 | 中间件/权限类双重 403 拦截 |
+
+---
+
+## 2026-11-04 — 本地改动同步至 GitHub（分支 `feat/rbac-admin-i18n-sync`，PR #2）
+
+**触发指令**：清理 nul、跑 V2/V5 验证（全部修到绿），按模块拆分提交，推到新分支并创建 PR。
+
+### 操作
+- 删除：根目录空文件 `nul`（Windows 重定向误生成）。
+- 修改：`.gitignore` 增加 `!frontend/src/lib/` —— Python `lib/` 规则误忽略了 `frontend/src/lib/api.ts`、`utils.ts`，导致远程仓库前端无法构建。
+- 提交：按模块拆分为 gitignore / agents / docs / administration / tenants / frontend 6 个提交。
+- 修改（V2）：`backend/pyproject.toml` ruff 配置迁移到 `[tool.ruff.lint]`，排除 migrations，`scripts/*` 允许 E402；black + ruff 自动修复；手工折行剩余 E501（字符串值不变，`makemigrations --check` 无变化）。
+- 修改（V5）：`frontend/eslint.config.js` react-refresh 允许 hook/variants 共导出；`AdminTable` 改为渲染期推导默认列宽、仅持久化用户覆盖值；`AuthContext`、`HierarchyContext` 及 6 个页面的加载函数改为 `useCallback` 补全依赖；`EditableCell` 去除未用 catch 变量；`VirtualTable` 标注 TanStack Virtual 与 React Compiler 不兼容。
+- 未纳入：`docs/SPECIFICATION_OLD.md`、`docs/Web_Based_..._V2.1.md`（按用户选择保持未跟踪）。
+
+### 验证
+- V1 `migrate_schemas --shared` / `migrate_schemas`：无待应用迁移 ✅
+- V2 `ruff check .` All checks passed；`black --check .` 63 files unchanged ✅
+- V4 `spectacular --validate`：0 errors（6 条类型提示/enum 命名 warning 待后续处理）✅
+- V5 `npm run lint` 0 problems；`npm run build` 成功 ✅
+- V3/V6：仓库暂无后端测试，未执行。
