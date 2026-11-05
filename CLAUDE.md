@@ -52,21 +52,23 @@ This codebase uses **`django-tenants` with a PostgreSQL schema per project**. Un
 **Two app categories** in `backend/config/settings.py`:
 
 - `SHARED_APPS` (live in `public` schema, visible to all tenants):
-  `apps.core`, `apps.tenants`, `apps.administration` (Users, Organizations, Roles, AuditLog, ProjectMembership, ProjectTaskForce).
+  `apps.tenants`, `apps.administration` (Users, Organizations, Roles, ProjectTaskForce, TaskForceMembership), `apps.audit` (append-only AuditLog), `apps.core` (abstract base models, service layer, error envelope).
 - `TENANT_APPS` (live in per-project schemas, isolated):
   `apps.core_engineering` (Client, Site, Plant, PlantHierarchy, NamingConvention, Tag, Loop, InstrumentType).
 
 **Tenant model**: `apps.tenants.ProjectTenant` (each Project = one tenant). `schema_name` is auto-derived from `project_no` in `ProjectTenant.save()`. `auto_create_schema=True` means saving a new ProjectTenant immediately provisions a schema.
 
-**Tenant selection**: `apps.tenants.middleware.HeaderBasedTenantMiddleware` switches schemas based on the **`X-Project-ID`** request header (no subdomains). Requests under `/admin/` and `/api/token` always use the public schema. Without the header, public schema is used (suitable for shared resources like auth).
+**Tenant selection**: `apps.tenants.middleware.HeaderBasedTenantMiddleware` switches schemas based on the **`X-Project-ID`** request header (no subdomains). Paths in `PUBLIC_ONLY_PREFIXES` (`/admin/`, auth, `/api/v1/me|tenants|users|roles|organizations|task-forces|audit-logs/`) always use the public schema. A malformed, unknown or non-member `X-Project-ID` gets 403 and the connection is reset to public (§15.3.3). Tenant endpoints called without the header answer 400 `AUTH_PROJECT_REQUIRED`.
 
-**Cross-schema FK rule**: tenant-schema models cannot have ForeignKeys to shared-schema models, and shared-schema models cannot FK into tenant schemas. The codebase works around this by storing **`project_id` as a plain `IntegerField`** (see `ProjectMembership`, `ProjectTaskForce`, `AuditLog` in `apps/administration/models.py`) and exposing a `project` property that does an explicit lookup. Follow this pattern for new cross-schema references — don't add a real FK.
+**Cross-schema FK rule**: tenant-schema models cannot have ForeignKeys to shared-schema models, and shared-schema models cannot FK into tenant schemas. The codebase works around this by storing **`project_id` as a plain `IntegerField`** (see `ProjectTaskForce` in `apps/administration/models.py`, `AuditLog` in `apps/audit/models.py`; tenant tables store `created_by_id`/`updated_by_id` the same way via `apps.core.models.AuditedModel`) and exposing a `project` property that does an explicit lookup. Follow this pattern for new cross-schema references — don't add a real FK.
 
 **Custom user**: `AUTH_USER_MODEL = "administration.User"` (extends `AbstractUser` with org/role/language/timezone/avatar). Always reference via `settings.AUTH_USER_MODEL`, not a direct import.
 
-**Auth**: JWT via `rest_framework_simplejwt` at `/api/token/` and `/api/token/refresh/`. Default DRF permission is `IsAuthenticated`. `PAGE_SIZE = 50`.
+**Auth**: JWT at `/api/v1/auth/login/` and `/api/v1/auth/refresh/` (decision D1); `/api/token/*` are deprecated aliases that add `Deprecation`/`Sunset` headers. Refresh-token rotation blacklists old tokens (`token_blacklist` app).
 
-**RBAC**: 5 levels in `Role.Level` (1 Guest → 5 Administrator). Admins bypass permission checks in `User.has_permission`. Non-admin permissions are stored as a JSON matrix `{model_name: [actions]}` on `Role.permissions`.
+**RBAC** (decision D5): 5 levels in `Role.Level` (1 Guest → 5 Administrator), 7 system roles shipped by data migration (`apps/administration/rbac.py` is the single definition). Authorization uses the `Role.permissions` matrix `{resource: [create|read|update|delete]}` through `RoleMatrixPermission` — every view declares `rbac_resource` (views without one are Administrator-only). Inside a project, `TaskForceMembership.role_in_project` overrides the system role. Never branch on `role.code`.
+
+**Writes**: every create/update/delete goes through a service (`apps.core.services.CrudService` subclasses in `apps/*/services.py`) that runs `full_clean`, wraps a transaction, writes `AuditLog` and enforces `row_version`. Tenant business models inherit `apps.core.models.TenantBaseModel` (audit columns, soft delete, `row_version`); updates must send `expected_row_version` (409 on mismatch). Errors use the §4.2.2 envelope `{"error": {code, message, field, details, trace_id}}`; pagination accepts `?page_size=` (≤ 500).
 
 **Plant hierarchy** uses `django-mptt` (`PlantHierarchy` is an MPTT tree of Plant → Area → Unit nodes inside the tenant schema).
 
@@ -74,7 +76,7 @@ This codebase uses **`django-tenants` with a PostgreSQL schema per project**. Un
 
 React Router 7 SPA, client-side auth via Zustand (`src/stores/authStore.ts`), JWT stored in `localStorage` (`access_token` / `refresh_token`). `ProtectedRoute` wraps the authenticated layout. Vite alias **`@` → `src`**.
 
-API base path is `/api` and is proxied to `http://localhost:8000` by Vite's dev server (see `vite.config.ts`). The frontend must send the `X-Project-ID` header for any tenant-scoped request to hit the right schema.
+The axios client (`src/lib/api.ts`) uses base path `/api/v1`; Vite's dev server proxies `/api` to `http://localhost:8000` (see `vite.config.ts`). The frontend must send the `X-Project-ID` header for any tenant-scoped request to hit the right schema. Use `apiErrorMessage()` / `isRowVersionConflict()` for errors, pass the loaded `row_version` on updates, and gate UI with `usePermissions()` (driven by the `/me/` permission matrix, never by `role_code`).
 
 Key directories: `components/{auth,hierarchy,layout,table,ui}`, `pages/`, `contexts/`, `stores/`.
 
@@ -83,7 +85,7 @@ Key directories: `components/{auth,hierarchy,layout,table,ui}`, `pages/`, `conte
 ## Conventions worth knowing
 
 - All models inherit `apps.core.models.TimeStampedModel` for `created_at` / `updated_at`.
-- Engineering URL routes are mounted at `/api/engineering/` (tags, loops, instrument-types, hierarchy, clients, sites, plants, naming-conventions). Admin/tenant management is at `/api/admin/` and `/api/tenants/`.
+- All routes are flat under `/api/v1/` (`backend/config/api_v1.py`): tenant data — `clients`, `sites`, `plants`, `plant-hierarchy`, `loops`, `instrument-types`, `instruments`, `naming-conventions`, `tags/validate-number|parse-number|generate-number`; public — `me`, `users`, `roles`, `organizations`, `task-forces`, `audit-logs`, `tenants/projects`. New endpoints must be registered in SPECIFICATION §5.4 first (decision D3).
 - New tenant-schema migrations require running `migrate_schemas` (not `migrate`) so every existing tenant gets the change. Adding `auto_create_schema=True` means new `ProjectTenant` rows trigger schema creation at save time — be careful in tests.
 - Ruff config: `line-length = 88`, rules `E,F,I,N,W`. Black also at 88.
 

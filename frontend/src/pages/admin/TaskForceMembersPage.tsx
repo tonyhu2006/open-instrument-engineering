@@ -15,9 +15,12 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { RoleGuard } from '@/components/auth'
 import {
+  apiErrorMessage,
+  roleApi,
   taskForceApi,
   userApi,
   type ProjectTaskForce,
+  type Role,
   type TaskForceMembership,
   type UserProfile,
 } from '@/lib/api'
@@ -40,11 +43,13 @@ function TaskForceMembersInner() {
   const [taskForce, setTaskForce] = useState<ProjectTaskForce | null>(null)
   const [members, setMembers] = useState<TaskForceMembership[]>([])
   const [users, setUsers] = useState<UserProfile[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [adding, setAdding] = useState<{ user_id: number | ''; role: string }>({
+  // §15.3.1 role_in_project: '' = keep the user's system role
+  const [adding, setAdding] = useState<{ user_id: number | ''; role_in_project: number | '' }>({
     user_id: '',
-    role: 'member',
+    role_in_project: '',
   })
   const [busy, setBusy] = useState(false)
 
@@ -53,14 +58,16 @@ function TaskForceMembersInner() {
     setLoading(true)
     setError(null)
     try {
-      const [tf, mem, u] = await Promise.all([
+      const [tf, mem, u, r] = await Promise.all([
         taskForceApi.get(taskForceId),
         taskForceApi.members(taskForceId),
         userApi.list().catch(() => [] as UserProfile[]),
+        roleApi.list().catch(() => [] as Role[]),
       ])
       setTaskForce(tf)
       setMembers(mem)
       setUsers(u)
+      setRoles(r)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('common.loadFailed'))
     } finally {
@@ -79,29 +86,27 @@ function TaskForceMembersInner() {
     [users, memberUserIds],
   )
 
-  const counts = useMemo(() => {
-    const c = { lead: 0, reviewer: 0, member: 0 }
-    for (const m of members) {
-      const role = (m.role || 'member').toLowerCase()
-      if (role === 'lead') c.lead += 1
-      else if (role === 'reviewer') c.reviewer += 1
-      else c.member += 1
-    }
-    return c
-  }, [members])
+  const overrideCount = useMemo(
+    () => members.filter((m) => m.role_in_project !== null).length,
+    [members],
+  )
 
-  const canEdit = !!taskForce && perms.canEditOwnTaskForce(taskForce.leader)
+  // ADM-TF01: Administrators manage any group, PM/PE only groups they created.
+  const canEdit = !!taskForce && perms.canEditOwnTaskForce(taskForce.created_by)
 
   const handleAdd = async () => {
     if (!taskForce || !adding.user_id) return
     setBusy(true)
     try {
-      await taskForceApi.addMember(taskForce.id, Number(adding.user_id), adding.role)
-      setAdding({ user_id: '', role: 'member' })
+      await taskForceApi.addMember(
+        taskForce.id,
+        Number(adding.user_id),
+        adding.role_in_project === '' ? null : Number(adding.role_in_project),
+      )
+      setAdding({ user_id: '', role_in_project: '' })
       setMembers(await taskForceApi.members(taskForce.id))
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.saveFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.saveFailed')}: ${apiErrorMessage(e)}`)
     } finally {
       setBusy(false)
     }
@@ -115,7 +120,7 @@ function TaskForceMembersInner() {
       await taskForceApi.removeMember(taskForce.id, m.user)
       setMembers(await taskForceApi.members(taskForce.id))
     } catch (e) {
-      alert(`${t('taskforce.errors.removeFailed')}: ${e instanceof Error ? e.message : ''}`)
+      alert(`${t('taskforce.errors.removeFailed')}: ${apiErrorMessage(e)}`)
     } finally {
       setBusy(false)
     }
@@ -150,19 +155,8 @@ function TaskForceMembersInner() {
     )
   }
 
-  const roleVariant = (role: string): 'default' | 'secondary' | 'outline' => {
-    const r = role.toLowerCase()
-    if (r === 'lead') return 'default'
-    if (r === 'reviewer') return 'secondary'
-    return 'outline'
-  }
-
-  const roleLabel = (role: string) => {
-    const r = role.toLowerCase()
-    if (r === 'lead') return t('taskforce.members.roleOptions.lead')
-    if (r === 'reviewer') return t('taskforce.members.roleOptions.reviewer')
-    return t('taskforce.members.roleOptions.member')
-  }
+  const roleLabel = (m: TaskForceMembership) =>
+    m.role_in_project_name ?? t('taskforce.members.roleOptions.system')
 
   return (
     <div className="space-y-4">
@@ -207,13 +201,10 @@ function TaskForceMembersInner() {
                 {t('taskforce.members.stat.total')}: {members.length}
               </span>
               <span>
-                {t('taskforce.members.stat.leads')}: {counts.lead}
+                {t('taskforce.members.stat.overrides')}: {overrideCount}
               </span>
               <span>
-                {t('taskforce.members.stat.reviewers')}: {counts.reviewer}
-              </span>
-              <span>
-                {t('taskforce.members.stat.members')}: {counts.member}
+                {t('taskforce.columns.createdBy')}: {taskForce.created_by_name ?? '—'}
               </span>
             </div>
           </div>
@@ -246,16 +237,24 @@ function TaskForceMembersInner() {
                 ))}
               </Select>
             </div>
-            <div className="grid w-40 gap-1.5">
+            <div className="grid w-60 gap-1.5">
               <Label className="text-xs">{t('taskforce.members.roleLabel')}</Label>
               <Select
-                value={adding.role}
-                onChange={(e) => setAdding({ ...adding, role: e.target.value })}
+                value={adding.role_in_project}
+                onChange={(e) =>
+                  setAdding({
+                    ...adding,
+                    role_in_project: e.target.value ? Number(e.target.value) : '',
+                  })
+                }
                 disabled={busy}
               >
-                <option value="member">{t('taskforce.members.roleOptions.member')}</option>
-                <option value="lead">{t('taskforce.members.roleOptions.lead')}</option>
-                <option value="reviewer">{t('taskforce.members.roleOptions.reviewer')}</option>
+                <option value="">{t('taskforce.members.roleOptions.system')}</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
               </Select>
             </div>
             <Button onClick={handleAdd} disabled={busy || !adding.user_id}>
@@ -300,9 +299,15 @@ function TaskForceMembersInner() {
                       </span>
                     )}
                   </div>
-                  <Badge variant={roleVariant(m.role)} className="ml-2">
-                    {roleLabel(m.role)}
+                  <Badge
+                    variant={m.role_in_project !== null ? 'default' : 'outline'}
+                    className="ml-2"
+                  >
+                    {roleLabel(m)}
                   </Badge>
+                  {!m.is_active && (
+                    <Badge variant="secondary">{t('common.inactive')}</Badge>
+                  )}
                 </div>
                 {canEdit && (
                   <Button

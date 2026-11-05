@@ -41,13 +41,16 @@ SHARED_APPS = [
     # Third-party apps
     "rest_framework",
     "rest_framework_simplejwt",
+    # Required for BLACKLIST_AFTER_ROTATION to actually revoke refresh tokens.
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
     "django_filters",
-    # Local shared apps
-    "apps.core",
+    # Local shared apps (§4.10 / §4.1.12 order)
     "apps.tenants",
-    "apps.administration",  # Users, Organizations, Roles are shared
+    "apps.administration",  # Users, Organizations, Roles, Task forces
+    "apps.audit",  # AuditLog (§6.1.1, ADM-07)
+    "apps.core",  # abstract base classes, service layer
 ]
 
 # Apps that have data in tenant schemas (project-specific)
@@ -83,6 +86,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.tenants.middleware.TenantContextMiddleware",
+    "django.middleware.locale.LocaleMiddleware",  # I18N-01 (Accept-Language)
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -117,7 +121,8 @@ DATABASES = {
         "USER": os.getenv("DB_USER", "openinstrument"),
         "PASSWORD": os.getenv("DB_PASSWORD", "openinstrument_dev_password"),
         "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+        # Docker PostgreSQL on the non-standard port (AGENTS.md, §5.1.1).
+        "PORT": os.getenv("DB_PORT", "5433"),
     }
 }
 
@@ -125,7 +130,7 @@ DATABASES = {
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+        "LOCATION": os.getenv("REDIS_URL", "redis://localhost:6380/0"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
@@ -151,8 +156,39 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
+# Internationalization (§6.2, I18N-01): English default + 11 languages.
 LANGUAGE_CODE = "en-us"
+LANGUAGES = [
+    ("en", "English"),
+    ("zh-hans", "简体中文"),
+    ("zh-hant", "繁體中文"),
+    ("ja", "日本語"),
+    ("ko", "한국어"),
+    ("fr", "Français"),
+    ("es", "Español"),
+    ("it", "Italiano"),
+    ("de", "Deutsch"),
+    ("ru", "Русский"),
+    ("ar", "العربية"),
+    ("he", "עברית"),
+]
+# Frontend language codes (BCP 47) accepted by /api/v1/me/preferences/.
+PREFERENCE_LANGUAGES = [
+    "en",
+    "en-US",
+    "zh-CN",
+    "zh-TW",
+    "ja",
+    "ko",
+    "fr",
+    "es",
+    "it",
+    "de",
+    "ru",
+    "ar",
+    "he",
+]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
@@ -193,9 +229,12 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
+    # Deny by default: views must declare ``rbac_resource`` (§15.2.4) — a view
+    # without one is Administrator-only.
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
         "apps.administration.permissions.IsProjectMemberOrPublicSchema",
+        "apps.administration.permissions.RoleMatrixPermission",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_FILTER_BACKENDS": [
@@ -203,8 +242,11 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    # §4.2.1: ?page=&page_size= (default 50, max 500)
+    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPagination",
     "PAGE_SIZE": 50,
+    # §4.2.2 error envelope
+    "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
 }
 
 # Simple JWT Configuration
@@ -225,6 +267,10 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "ProjectStatusEnum": "apps.tenants.models.ProjectTenant.Status",
         "TagStatusEnum": "apps.core_engineering.models.Tag.Status",
+        "NamingEntityTypeEnum": (
+            "apps.core_engineering.models.NamingConvention.EntityType"
+        ),
+        "AuditActionEnum": "apps.audit.models.AuditLog.Action",
     },
 }
 

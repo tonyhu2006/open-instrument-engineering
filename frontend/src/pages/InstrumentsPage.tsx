@@ -25,7 +25,7 @@ import {
   Eye
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { engineeringApi, type Tag } from '@/lib/api'
+import { apiErrorMessage, engineeringApi, type Tag } from '@/lib/api'
 import { useHierarchy } from '@/components/hierarchy'
 
 export function InstrumentsPage() {
@@ -45,22 +45,26 @@ export function InstrumentsPage() {
     setLoading(true)
     setError(null)
     try {
-      // Build query params based on hierarchy selection
-      const params: Record<string, number> = {}
+      // Instruments live in the project schema (X-Project-ID); without a
+      // project there is nothing to list (§4.1.4).
+      if (!selectedProject) {
+        setData([])
+        return
+      }
+      // Narrow by hierarchy selection (ADM-02); the project itself is the schema.
+      const params: Record<string, number> = { page_size: 500 }
       if (selectedPlant) {
         params.plant = selectedPlant.id
       } else if (selectedSite) {
         params.site = selectedSite.id
       } else if (selectedClient) {
         params.client = selectedClient.id
-      } else if (selectedProject) {
-        params.project = selectedProject.id
       }
-      
+
       const response = await engineeringApi.tags.list(params)
       setData(response.results)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('instruments.loadFailed'))
+      setError(apiErrorMessage(err, t('instruments.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -122,7 +126,6 @@ export function InstrumentsPage() {
             INACTIVE: 'bg-gray-100 text-gray-800',
             PENDING: 'bg-yellow-100 text-yellow-800',
             UNDER_REVIEW: 'bg-blue-100 text-blue-800',
-            DELETED: 'bg-red-100 text-red-800',
           }
           const label = t(`instruments.status.${status}`, { defaultValue: status })
           return (
@@ -133,11 +136,11 @@ export function InstrumentsPage() {
         },
       },
       {
-        accessorKey: 'revision',
+        accessorKey: 'row_version',
         header: t('instruments.columns.revision'),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            R{row.getValue('revision')}
+            v{row.getValue('row_version')}
           </span>
         ),
         size: 60,

@@ -2,6 +2,8 @@
 Core API Views - Health Check and System Status
 """
 
+import logging
+
 from django.core.cache import cache
 from django.db import connection
 from drf_spectacular.utils import extend_schema
@@ -9,6 +11,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema(
@@ -52,8 +56,9 @@ def health_check(request):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         health_status["services"]["database"] = "connected"
-    except Exception as e:
-        health_status["services"]["database"] = f"error: {str(e)}"
+    except Exception:  # noqa: BLE001 — never leak driver details (§6.5.2)
+        logger.exception("Health check: database unavailable")
+        health_status["services"]["database"] = "error"
         health_status["status"] = "degraded"
 
     # Check Redis cache connection
@@ -62,10 +67,11 @@ def health_check(request):
         if cache.get("health_check") == "ok":
             health_status["services"]["cache"] = "connected"
         else:
-            health_status["services"]["cache"] = "error: cache read failed"
+            health_status["services"]["cache"] = "error"
             health_status["status"] = "degraded"
-    except Exception as e:
-        health_status["services"]["cache"] = f"error: {str(e)}"
+    except Exception:  # noqa: BLE001
+        logger.exception("Health check: cache unavailable")
+        health_status["services"]["cache"] = "error"
         health_status["status"] = "degraded"
 
     response_status = (

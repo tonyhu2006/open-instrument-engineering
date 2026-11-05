@@ -1,9 +1,11 @@
 # OpenInstrument - 实现状态跟踪
 
-> **版本**: 0.3.1  
-> **最后更新**: 2026-04-26  
-> **开发阶段**: 多租户架构实现 + 管理后台前端打磨  
+> **版本**: 0.4.0  
+> **最后更新**: 2026-11-04  
+> **开发阶段**: 已实现功能对齐 SPECIFICATION V2.1（WP-01 / 01A / 02 / 03 范围）  
 > **对标产品**: Hexagon SmartPlant Instrumentation (SPI)
+
+> **2026-11-04 对齐说明**：已实现的功能已按 `docs/SPECIFICATION.md` 修正，详见下方「2.0.5」一节与 `docs/OPEN_QUESTIONS.md` OQ-002 ~ OQ-011。本文件下方较早的条目若与「2.0.5」或代码不一致，以「2.0.5」和代码为准（例如路由已全部迁移到 `/api/v1/`、`/api/health/` → `/api/v1/health/`，AuditLog 已迁到 `apps.audit`）。
 
 ---
 
@@ -117,6 +119,26 @@
 ## 2. SPI 模块 1.1 - 管理模块 (Administration)
 
 > **完成度**: 75%
+
+### 2.0.5 SPECIFICATION 对齐（2026-11-04）
+
+| 规格条款 | 修正内容 | 状态 |
+|----------|----------|------|
+| §15.2.4 / D5 RBAC | `RoleMatrixPermission` 按 `Role.permissions` 矩阵鉴权（默认拒绝），移除按 `role.code` 的学科判断；`role_in_project` 在项目内覆盖系统角色；7 个系统角色以数据迁移交付（`administration.0007`） | ✅ |
+| §15.1.3 / §15.2.4 项目 | 仅 Administrator 可创建/删除项目，PM/PE 可读改，其余只读 | ✅ |
+| §15.3 项目组 | 每个项目一个项目组、code 全局唯一、`created_by/created_by_role`；PE 仅管理自建组、不可改项目关联；删除无对象校验的 `/task-force-memberships/`；成员 `role_in_project/joined_at/added_by/is_active`；`assign-project`、`DELETE members/{user_id}` | ✅ |
+| §15.3.3 / DoD 10 | 非法/未知/无权的 `X-Project-ID` 一律 403 并重置到 public | ✅ |
+| §15.7 | `/me/`、`/me/task-forces/`、`/me/preferences/`（所有用户可写本人偏好）、`users/{id}/reset-password/`；用户/角色管理仅 Administrator（只读授予项目组管理者用于选人） | ✅ |
+| §4.1.1–4.1.3 / §4.1.8 | `TenantBaseModel`（审计字段、软删除、`row_version`）；更新须带 `expected_row_version`，不匹配 409；软删除按 on_delete 语义级联/保护 | ✅ |
+| §4.1.13 / ADM-07 / §6.1.1 | `AuditLog` 迁入 `apps.audit`（UUID、`changed_fields`、`change_details`、`batch_id`、只追加），所有增删改写审计 | ✅（独立连接见 OQ-004） |
+| §4.1.14 Service 层 | `apps/*/services.py`，ViewSet 不含业务写逻辑 | ✅ |
+| §4.2.1 / §4.2.2 / §4.2.6 | `/api/v1` 前缀（D2）、`/api/v1/auth/*` + 废弃别名（D1）、`page_size`≤500、统一错误体与业务错误码 | ✅ |
+| §4.1.6 | Loop 编号在 Unit 内唯一；唯一约束仅针对未删除行 | ✅ |
+| §15.4.1 / §15.4.5 / §15.4.6 | schema 名 `project_<字母数字>`；状态 ARCHIVED；`PlantHierarchy.plant` 外键（每个 Plant 一个根节点，替代按 code 匹配）；`hierarchy_config` 校验 + 默认层级自动创建；`/plant-hierarchy/{id}/move/` | ✅ |
+| §15.5 命名规则 | 字段按 §15.5.1 补齐；7 个预设模板；`validate`、`templates`、`from-template`、`set-default`；`tags/validate-number|parse-number|generate-number`；Tag/Loop 创建时按默认规则校验（IDX-01） | ✅ |
+| §4.8.1 种子 / V1 | `seed_admin_data`、`seed_demo_data` 重写（此前 V1 失败） | ✅ |
+| I18N-01 | 后端 12 种 `LANGUAGES` + `LocaleMiddleware` | ✅（前端 12 语言见 OQ-010） |
+| 测试 | `tests/test_spec_conformance.py`（37 项）+ V6 更新，共 59 项 | ✅ |
 
 ### 2.0 基于角色的用户管理系统 (RBAC)
 

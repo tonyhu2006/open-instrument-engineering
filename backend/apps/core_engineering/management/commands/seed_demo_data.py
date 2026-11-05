@@ -1,293 +1,149 @@
 """
-Management command to seed demo data for testing.
+Tenant-schema demo data — SPECIFICATION §4.8.1 (engineering part).
+
+Runs inside the demo project's schema (``PRJ-DEMO-001`` by default, created by
+``seed_admin_data``) and creates, idempotently:
+
+* Client DEMO_OWNER → Site S1 → Plant P1 → Area A101 → Unit U101
+* Instrument types FE, FT, FV, PT, TT, LT, XV, ZS, AI, AO, DI, DO
+* Loop 101-F-100 with tags 101-FE-100, 101-FT-100, 101-FV-100
+
+Usage::
+
+    python manage.py seed_demo_data
+    python manage.py seed_demo_data --project-no PRJ-2025-002
 """
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
+from django_tenants.utils import schema_context
 
-from apps.core_engineering.models import InstrumentType, Loop, PlantHierarchy, Tag
+from apps.core_engineering.models import (
+    Client,
+    InstrumentType,
+    Loop,
+    Plant,
+    PlantHierarchy,
+    Site,
+    Tag,
+)
+from apps.core_engineering.services import (
+    ClientService,
+    InstrumentTypeService,
+    LoopService,
+    PlantHierarchyService,
+    PlantService,
+    SiteService,
+    TagService,
+)
+from apps.tenants.models import ProjectTenant
+
+INSTRUMENT_TYPES = [
+    ("FE", "Flow Element", "SENSOR"),
+    ("FT", "Flow Transmitter", "TRANSMITTER"),
+    ("FV", "Flow Control Valve", "CONTROL_VALVE"),
+    ("PT", "Pressure Transmitter", "TRANSMITTER"),
+    ("TT", "Temperature Transmitter", "TRANSMITTER"),
+    ("LT", "Level Transmitter", "TRANSMITTER"),
+    ("XV", "On/Off Valve", "CONTROL_VALVE"),
+    ("ZS", "Position Switch", "SWITCH"),
+    ("AI", "Analog Input", "OTHER"),
+    ("AO", "Analog Output", "OTHER"),
+    ("DI", "Digital Input", "OTHER"),
+    ("DO", "Digital Output", "OTHER"),
+]
+
+FT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "range_min": {"type": "number"},
+        "range_max": {"type": "number"},
+        "range_unit": {"type": "string"},
+        "output_signal": {"type": "string"},
+    },
+}
+
+
+def _get_or_create(model, service, lookup, values):
+    existing = model.alive.filter(**lookup).first()
+    if existing is not None:
+        return existing, False
+    return service.create({**lookup, **values}), True
 
 
 class Command(BaseCommand):
-    help = "Seed demo data for core engineering models"
+    help = "Seed tenant-schema demo data (§4.8.1) into a project schema."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--project-no", default="PRJ-DEMO-001")
 
     def handle(self, *args, **options):
-        self.stdout.write("Seeding demo data...")
-
-        # Create Plant Hierarchy
-        plant, _ = PlantHierarchy.objects.get_or_create(
-            code="PLANT-001",
-            defaults={
-                "name": "Demo Chemical Plant",
-                "node_type": PlantHierarchy.NodeType.PLANT,
-                "description": "Demo plant for testing",
-            },
+        project = ProjectTenant.objects.filter(project_no=options["project_no"]).first()
+        if project is None:
+            raise CommandError(
+                f"Project {options['project_no']} not found; "
+                "run seed_admin_data first."
+            )
+        with schema_context(project.schema_name):
+            self._seed()
+        self.stdout.write(
+            self.style.SUCCESS(f"Demo data ready in schema {project.schema_name}")
         )
-        self.stdout.write(f"  Created Plant: {plant}")
 
-        area_100, _ = PlantHierarchy.objects.get_or_create(
-            code="A-100",
-            parent=plant,
-            defaults={
-                "name": "Process Area 100",
-                "node_type": PlantHierarchy.NodeType.AREA,
-                "description": "Main process area",
-            },
+    def _seed(self):
+        client, _ = _get_or_create(
+            Client, ClientService(), {"code": "DEMO_OWNER"}, {"name": "Demo Owner"}
         )
-        self.stdout.write(f"  Created Area: {area_100}")
-
-        area_200, _ = PlantHierarchy.objects.get_or_create(
-            code="A-200",
-            parent=plant,
-            defaults={
-                "name": "Utilities Area 200",
-                "node_type": PlantHierarchy.NodeType.AREA,
-                "description": "Utilities and support systems",
-            },
+        site, _ = _get_or_create(
+            Site, SiteService(), {"client": client, "code": "S1"}, {"name": "Site 1"}
         )
-        self.stdout.write(f"  Created Area: {area_200}")
-
-        unit_110, _ = PlantHierarchy.objects.get_or_create(
-            code="U-110",
-            parent=area_100,
-            defaults={
-                "name": "Reactor Unit 110",
-                "node_type": PlantHierarchy.NodeType.UNIT,
-                "description": "Primary reactor unit",
-            },
+        plant, _ = _get_or_create(
+            Plant, PlantService(), {"site": site, "code": "P1"}, {"name": "Plant 1"}
         )
-        self.stdout.write(f"  Created Unit: {unit_110}")
-
-        unit_120, _ = PlantHierarchy.objects.get_or_create(
-            code="U-120",
-            parent=area_100,
-            defaults={
-                "name": "Distillation Unit 120",
-                "node_type": PlantHierarchy.NodeType.UNIT,
-                "description": "Distillation column unit",
-            },
+        root = PlantHierarchy.alive.get(plant=plant, parent__isnull=True)
+        hierarchy = PlantHierarchyService()
+        area, _ = _get_or_create(
+            PlantHierarchy,
+            hierarchy,
+            {"parent": root, "code": "A101"},
+            {"name": "Area 101", "node_type": PlantHierarchy.NodeType.AREA},
         )
-        self.stdout.write(f"  Created Unit: {unit_120}")
+        unit, _ = _get_or_create(
+            PlantHierarchy,
+            hierarchy,
+            {"parent": area, "code": "U101"},
+            {"name": "Unit 101", "node_type": PlantHierarchy.NodeType.UNIT},
+        )
+        self.stdout.write(f"  Hierarchy: {unit.full_path}")
 
-        # Create Instrument Types with JSON schemas
-        flow_transmitter_schema = {
-            "type": "object",
-            "properties": {
-                "range_min": {"type": "number", "description": "Minimum range"},
-                "range_max": {"type": "number", "description": "Maximum range"},
-                "range_unit": {"type": "string", "description": "Engineering unit"},
-                "output_signal": {
-                    "type": "string",
-                    "enum": ["4-20mA", "HART", "Foundation Fieldbus"],
+        types = {}
+        for code, name, category in INSTRUMENT_TYPES:
+            types[code], _ = _get_or_create(
+                InstrumentType,
+                InstrumentTypeService(),
+                {"code": code},
+                {
+                    "name": name,
+                    "category": category,
+                    "schema_template": FT_SCHEMA if code == "FT" else {},
                 },
-                "process_connection": {"type": "string"},
-                "material": {"type": "string"},
-            },
-            "required": ["range_min", "range_max", "range_unit", "output_signal"],
-        }
+            )
+        self.stdout.write(f"  Instrument types: {len(types)}")
 
-        ft, _ = InstrumentType.objects.get_or_create(
-            code="FT",
-            defaults={
-                "name": "Flow Transmitter",
-                "category": InstrumentType.Category.TRANSMITTER,
-                "description": "Measures and transmits flow rate",
-                "schema_template": flow_transmitter_schema,
-                "default_spec_data": {
-                    "range_min": 0,
-                    "range_max": 100,
-                    "range_unit": "m³/h",
-                    "output_signal": "4-20mA",
-                },
-            },
+        loop, _ = _get_or_create(
+            Loop,
+            LoopService(),
+            {"unit": unit, "loop_tag": "101-F-100"},
+            {"function": Loop.Function.FLOW, "description": "Feed flow control"},
         )
-        self.stdout.write(f"  Created InstrumentType: {ft}")
-
-        temp_transmitter_schema = {
-            "type": "object",
-            "properties": {
-                "range_min": {"type": "number"},
-                "range_max": {"type": "number"},
-                "range_unit": {"type": "string", "enum": ["°C", "°F", "K"]},
-                "sensor_type": {
-                    "type": "string",
-                    "enum": ["RTD", "Thermocouple", "Thermistor"],
-                },
-                "output_signal": {"type": "string"},
-            },
-            "required": ["range_min", "range_max", "range_unit", "sensor_type"],
-        }
-
-        tt, _ = InstrumentType.objects.get_or_create(
-            code="TT",
-            defaults={
-                "name": "Temperature Transmitter",
-                "category": InstrumentType.Category.TRANSMITTER,
-                "description": "Measures and transmits temperature",
-                "schema_template": temp_transmitter_schema,
-                "default_spec_data": {
-                    "range_min": 0,
-                    "range_max": 200,
-                    "range_unit": "°C",
-                    "sensor_type": "RTD",
-                    "output_signal": "4-20mA",
-                },
-            },
-        )
-        self.stdout.write(f"  Created InstrumentType: {tt}")
-
-        control_valve_schema = {
-            "type": "object",
-            "properties": {
-                "cv": {"type": "number", "description": "Flow coefficient"},
-                "body_size": {"type": "string"},
-                "body_material": {"type": "string"},
-                "trim_material": {"type": "string"},
-                "actuator_type": {
-                    "type": "string",
-                    "enum": ["Pneumatic", "Electric", "Hydraulic"],
-                },
-                "fail_position": {"type": "string", "enum": ["FC", "FO", "FL"]},
-            },
-            "required": ["cv", "body_size", "actuator_type", "fail_position"],
-        }
-
-        cv, _ = InstrumentType.objects.get_or_create(
-            code="CV",
-            defaults={
-                "name": "Control Valve",
-                "category": InstrumentType.Category.CONTROL_VALVE,
-                "description": "Modulating control valve",
-                "schema_template": control_valve_schema,
-                "default_spec_data": {
-                    "cv": 10,
-                    "body_size": '2"',
-                    "actuator_type": "Pneumatic",
-                    "fail_position": "FC",
-                },
-            },
-        )
-        self.stdout.write(f"  Created InstrumentType: {cv}")
-
-        pt, _ = InstrumentType.objects.get_or_create(
-            code="PT",
-            defaults={
-                "name": "Pressure Transmitter",
-                "category": InstrumentType.Category.TRANSMITTER,
-                "description": "Measures and transmits pressure",
-                "schema_template": {
-                    "type": "object",
-                    "properties": {
-                        "range_min": {"type": "number"},
-                        "range_max": {"type": "number"},
-                        "range_unit": {"type": "string"},
-                        "output_signal": {"type": "string"},
-                    },
-                    "required": ["range_min", "range_max", "range_unit"],
-                },
-                "default_spec_data": {
-                    "range_min": 0,
-                    "range_max": 10,
-                    "range_unit": "bar",
-                    "output_signal": "4-20mA",
-                },
-            },
-        )
-        self.stdout.write(f"  Created InstrumentType: {pt}")
-
-        # Create Loops
-        fic_101, _ = Loop.objects.get_or_create(
-            loop_tag="FIC-101",
-            defaults={
-                "function": Loop.Function.FLOW,
-                "suffix": "101",
-                "unit": unit_110,
-                "description": "Reactor feed flow control",
-            },
-        )
-        self.stdout.write(f"  Created Loop: {fic_101}")
-
-        tic_102, _ = Loop.objects.get_or_create(
-            loop_tag="TIC-102",
-            defaults={
-                "function": Loop.Function.TEMPERATURE,
-                "suffix": "102",
-                "unit": unit_110,
-                "description": "Reactor temperature control",
-            },
-        )
-        self.stdout.write(f"  Created Loop: {tic_102}")
-
-        # Create Tags
-        ft_101, _ = Tag.objects.get_or_create(
-            tag_number="FT-101",
-            unit=unit_110,
-            defaults={
-                "loop": fic_101,
-                "instrument_type": ft,
-                "service": "Reactor feed flow measurement",
-                "spec_data": {
-                    "range_min": 0,
-                    "range_max": 150,
-                    "range_unit": "m³/h",
-                    "output_signal": "4-20mA",
-                    "process_connection": '2" 150# RF',
-                    "material": "316SS",
-                },
-            },
-        )
-        self.stdout.write(f"  Created Tag: {ft_101}")
-
-        fv_101, _ = Tag.objects.get_or_create(
-            tag_number="FV-101",
-            unit=unit_110,
-            defaults={
-                "loop": fic_101,
-                "instrument_type": cv,
-                "service": "Reactor feed flow control valve",
-                "spec_data": {
-                    "cv": 25,
-                    "body_size": '3"',
-                    "body_material": "WCB",
-                    "trim_material": "316SS",
-                    "actuator_type": "Pneumatic",
-                    "fail_position": "FC",
-                },
-            },
-        )
-        self.stdout.write(f"  Created Tag: {fv_101}")
-
-        tt_102, _ = Tag.objects.get_or_create(
-            tag_number="TT-102",
-            unit=unit_110,
-            defaults={
-                "loop": tic_102,
-                "instrument_type": tt,
-                "service": "Reactor temperature measurement",
-                "spec_data": {
-                    "range_min": 0,
-                    "range_max": 300,
-                    "range_unit": "°C",
-                    "sensor_type": "RTD",
-                    "output_signal": "4-20mA",
-                },
-            },
-        )
-        self.stdout.write(f"  Created Tag: {tt_102}")
-
-        pt_103, _ = Tag.objects.get_or_create(
-            tag_number="PT-103",
-            unit=unit_110,
-            defaults={
-                "instrument_type": pt,
-                "service": "Reactor pressure measurement",
-                "spec_data": {
-                    "range_min": 0,
-                    "range_max": 25,
-                    "range_unit": "bar",
-                    "output_signal": "4-20mA",
-                },
-            },
-        )
-        self.stdout.write(f"  Created Tag: {pt_103}")
-
-        self.stdout.write(self.style.SUCCESS("Demo data seeded successfully!"))
+        for code, service in [
+            ("FE", "Feed flow element"),
+            ("FT", "Feed flow transmitter"),
+            ("FV", "Feed flow control valve"),
+        ]:
+            _get_or_create(
+                Tag,
+                TagService(),
+                {"unit": unit, "tag_number": f"101-{code}-100"},
+                {"loop": loop, "instrument_type": types[code], "service": service},
+            )
+        self.stdout.write("  Loop 101-F-100 with 101-FE/FT/FV-100")

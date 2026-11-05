@@ -5,11 +5,16 @@ Each Project becomes a tenant with its own PostgreSQL schema.
 Shared data (users, organizations) stays in the public schema.
 """
 
+import re
+
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_tenants.models import DomainMixin, TenantMixin
 
 from apps.core.models import TimeStampedModel
+
+from .hierarchy_config import validate as validate_hierarchy_config
 
 
 class ProjectTenant(TenantMixin, TimeStampedModel):
@@ -24,7 +29,7 @@ class ProjectTenant(TenantMixin, TimeStampedModel):
         ACTIVE = "ACTIVE", _("Active")
         ON_HOLD = "ON_HOLD", _("On Hold")
         COMPLETED = "COMPLETED", _("Completed")
-        CANCELLED = "CANCELLED", _("Cancelled")
+        ARCHIVED = "ARCHIVED", _("Archived")
 
     # Tenant identification
     name = models.CharField(
@@ -66,10 +71,7 @@ class ProjectTenant(TenantMixin, TimeStampedModel):
     hierarchy_config = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_(
-            "Hierarchy configuration. Example: "
-            "{'template': 'standard', 'levels': ['site', 'plant', 'area', 'unit']}"
-        ),
+        help_text=_("Hierarchy configuration (§15.4.6, schema_version 1)"),
     )
 
     # django-tenants settings
@@ -84,15 +86,33 @@ class ProjectTenant(TenantMixin, TimeStampedModel):
     def __str__(self):
         return f"{self.project_no} - {self.name}"
 
+    @staticmethod
+    def schema_name_for(project_no: str) -> str:
+        """§15.4.1: ``project_`` + lower-case alphanumerics of the project no.
+
+        e.g. ``PRJ-2025-001`` → ``project_prj2025001``.
+        """
+        core = re.sub(r"[^a-z0-9]", "", (project_no or "").lower())
+        return f"project_{core}"[:63]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        candidate = self.schema_name or self.schema_name_for(self.project_no)
+        if candidate == "project_":
+            errors["project_no"] = _(
+                "Project number must contain at least one letter or digit."
+            )
+        config_errors = validate_hierarchy_config(self.hierarchy_config)
+        if config_errors:
+            errors["hierarchy_config"] = config_errors
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
-        # Auto-generate schema_name from project_no if not set
+        # Existing tenants keep their stored schema_name; new ones derive it.
         if not self.schema_name:
-            # Convert project_no to valid schema name (lowercase, underscores)
-            schema = self.project_no.lower().replace("-", "_").replace(" ", "_")
-            # Ensure it starts with a letter
-            if schema[0].isdigit():
-                schema = f"prj_{schema}"
-            self.schema_name = schema
+            self.schema_name = self.schema_name_for(self.project_no)
         super().save(*args, **kwargs)
 
 

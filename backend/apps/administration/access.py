@@ -1,13 +1,12 @@
 """
-Project visibility / access control helpers.
+Project visibility and permission decisions — single source of truth.
 
-Implements SPECIFICATION.md §3.1.0.5.6 "项目可见性规则":
-A regular user can only see / operate on engineering projects (ProjectTenant)
-they are a member OR leader of (via ProjectTaskForce). Administrators and
-Django superusers bypass this restriction.
-
-This module is the single source of truth for that rule. It must be consulted
-by every code path that exposes project lists or validates X-Project-ID.
+* §15.3.3 project visibility: a non-administrator only sees projects whose
+  task force they belong to (active membership) or lead.
+* §15.2.4 / D5 data permissions: decided by the ``Role.permissions`` matrix.
+  Inside a project, ``TaskForceMembership.role_in_project`` overrides the
+  user's system role (§15.3.1). Administrators (and Django superusers)
+  bypass the matrix — the only role-identity branch allowed by D5.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ from .models import ProjectTaskForce, Role, TaskForceMembership
 
 
 def is_administrator(user) -> bool:
-    """True if the user is a Django superuser or has Administrator role."""
+    """True if the user is a Django superuser or has an Administrator-level role."""
     if not user or not getattr(user, "is_authenticated", False):
         return False
     if getattr(user, "is_superuser", False):
@@ -28,13 +27,10 @@ def is_administrator(user) -> bool:
 
 
 def user_accessible_project_ids(user) -> Optional[list[int]]:
-    """
-    Return the list of project_ids the user can see/operate on.
+    """Project ids the user may see / operate on.
 
-    Returns:
-        None  — administrator / superuser: access ALL projects (bypass).
-        []    — authenticated user without any TaskForce membership or leadership.
-        [ids] — sorted list of project_ids from memberships ∪ leaderships.
+    Returns ``None`` for administrators (all projects), otherwise the sorted
+    list of ``project_id`` from active memberships ∪ led task forces.
     """
     if not user or not getattr(user, "is_authenticated", False):
         return []
@@ -42,21 +38,74 @@ def user_accessible_project_ids(user) -> Optional[list[int]]:
         return None
 
     member_ids = set(
-        TaskForceMembership.objects.filter(user=user).values_list(
-            "task_force__project_id", flat=True
-        )
+        TaskForceMembership.objects.filter(
+            user=user,
+            is_active=True,
+            task_force__is_active=True,
+            task_force__project_id__isnull=False,
+        ).values_list("task_force__project_id", flat=True)
     )
     leader_ids = set(
-        ProjectTaskForce.objects.filter(leader=user).values_list(
-            "project_id", flat=True
-        )
+        ProjectTaskForce.objects.filter(
+            leader=user, is_active=True, project_id__isnull=False
+        ).values_list("project_id", flat=True)
     )
     return sorted(member_ids | leader_ids)
 
 
 def user_can_access_project(user, project_id: int) -> bool:
-    """Shorthand: is the user allowed to access the given project_id?"""
     accessible = user_accessible_project_ids(user)
     if accessible is None:
         return True
     return int(project_id) in accessible
+
+
+def effective_role(user, project_id: int | None = None):
+    """System role, overridden by ``role_in_project`` inside a project."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+    if project_id:
+        membership = (
+            TaskForceMembership.objects.filter(
+                user=user,
+                is_active=True,
+                task_force__project_id=project_id,
+                task_force__is_active=True,
+                role_in_project__isnull=False,
+            )
+            .select_related("role_in_project")
+            .first()
+        )
+        if membership is not None:
+            return membership.role_in_project
+    return getattr(user, "role", None)
+
+
+def role_allows(role, resource: str, action: str) -> bool:
+    if role is None:
+        return False
+    if role.level >= Role.Level.ADMINISTRATOR:
+        return True
+    matrix = role.permissions or {}
+    return action in matrix.get(resource, []) or action in matrix.get("*", [])
+
+
+def user_has_permission(
+    user, resource: str, action: str, project_id: int | None = None
+) -> bool:
+    """Matrix check for ``resource``/``action`` (create|read|update|delete)."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if is_administrator(user):
+        return True
+    return role_allows(effective_role(user, project_id), resource, action)
+
+
+def effective_permissions(user, project_id: int | None = None) -> dict:
+    """The matrix the frontend uses to show/hide actions."""
+    if is_administrator(user):
+        from .rbac import build_permissions
+
+        return build_permissions("ADMIN")
+    role = effective_role(user, project_id)
+    return dict(role.permissions or {}) if role else {}

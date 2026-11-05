@@ -1,10 +1,13 @@
 """
-Core Engineering Serializers - DRF serializers for all models
+Core engineering serializers. All expose the §4.1.1 audit columns and
+``row_version`` (read-only) plus write-only ``expected_row_version`` (§4.1.3).
 """
 
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
+from apps.core.viewsets import VersionedModelSerializer as Base
 
 from .models import (
     Client,
@@ -17,39 +20,34 @@ from .models import (
     Tag,
 )
 
+RO = list(Base.BASE_READ_ONLY)
+BASE = list(Base.BASE_FIELDS)
+
 # =============================================================================
-# Client, Site, Plant Serializers (Tenant-specific)
+# Hierarchy (§15.4)
 # =============================================================================
 
 
-class ClientSerializer(serializers.ModelSerializer):
-    """Serializer for Client model (tenant-specific)."""
-
+class ClientSerializer(Base):
     class Meta:
         model = Client
-        fields = [
-            "id",
+        fields = BASE + [
             "code",
             "name",
             "contact_person",
             "contact_email",
             "contact_phone",
             "address",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = RO
 
 
-class SiteSerializer(serializers.ModelSerializer):
-    """Serializer for Site model (tenant-specific)."""
-
+class SiteSerializer(Base):
     client_name = serializers.CharField(source="client.name", read_only=True)
 
     class Meta:
         model = Site
-        fields = [
-            "id",
+        fields = BASE + [
             "client",
             "client_name",
             "code",
@@ -57,22 +55,23 @@ class SiteSerializer(serializers.ModelSerializer):
             "location",
             "address",
             "timezone",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = RO
+
+    def validate_client(self, value):
+        if value.is_deleted:
+            raise serializers.ValidationError("Client has been deleted.")
+        return value
 
 
-class PlantSerializer(serializers.ModelSerializer):
-    """Serializer for Plant model (tenant-specific)."""
-
+class PlantSerializer(Base):
     site_name = serializers.CharField(source="site.name", read_only=True)
     site_code = serializers.CharField(source="site.code", read_only=True)
+    root_node = serializers.SerializerMethodField()
 
     class Meta:
         model = Plant
-        fields = [
-            "id",
+        fields = BASE + [
             "site",
             "site_name",
             "site_code",
@@ -81,54 +80,32 @@ class PlantSerializer(serializers.ModelSerializer):
             "description",
             "capacity",
             "is_active",
-            "created_at",
-            "updated_at",
+            "root_node",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = RO
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_root_node(self, obj):
+        root = PlantHierarchy.alive.filter(plant=obj, parent__isnull=True).first()
+        return root.pk if root else None
+
+    def validate_site(self, value):
+        if value.is_deleted:
+            raise serializers.ValidationError("Site has been deleted.")
+        return value
 
 
-class NamingConventionSerializer(serializers.ModelSerializer):
-    """Serializer for NamingConvention model (tenant-specific)."""
-
-    hierarchy_format_display = serializers.CharField(
-        source="get_hierarchy_format_display", read_only=True
+class PlantHierarchySerializer(Base):
+    parent_name = serializers.CharField(
+        source="parent.name", read_only=True, default=None
     )
-
-    class Meta:
-        model = NamingConvention
-        fields = [
-            "id",
-            "name",
-            "description",
-            "hierarchy_format",
-            "hierarchy_format_display",
-            "regex_pattern",
-            "segment_definitions",
-            "example_tags",
-            "is_default",
-            "is_active",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
-
-
-# =============================================================================
-# PlantHierarchy Serializers
-# =============================================================================
-
-
-class PlantHierarchySerializer(serializers.ModelSerializer):
-    """Serializer for PlantHierarchy model."""
-
-    parent_name = serializers.CharField(source="parent.name", read_only=True)
     full_path = serializers.CharField(read_only=True)
     children_count = serializers.SerializerMethodField()
 
     class Meta:
         model = PlantHierarchy
-        fields = [
-            "id",
+        fields = BASE + [
+            "plant",
             "name",
             "code",
             "node_type",
@@ -139,56 +116,61 @@ class PlantHierarchySerializer(serializers.ModelSerializer):
             "full_path",
             "children_count",
             "level",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "level", "created_at", "updated_at"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Make parent not required for root nodes (PLANT type)
-        self.fields["parent"].required = False
-        self.fields["parent"].allow_null = True
+        read_only_fields = RO + ["level"]
+        extra_kwargs = {
+            "parent": {"required": False, "allow_null": True},
+            "plant": {"required": False, "allow_null": True},
+        }
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_children_count(self, obj):
-        return obj.get_children().count()
+        return obj.get_children().filter(is_deleted=False).count()
 
 
 class PlantHierarchyTreeSerializer(serializers.ModelSerializer):
-    """Serializer for PlantHierarchy tree structure with nested children."""
-
     children = serializers.SerializerMethodField()
 
     class Meta:
         model = PlantHierarchy
         fields = [
             "id",
+            "plant",
             "name",
             "code",
             "node_type",
             "description",
             "is_active",
+            "row_version",
             "children",
         ]
 
     @extend_schema_field(serializers.ListSerializer(child=serializers.DictField()))
     def get_children(self, obj):
-        children = obj.get_children()
+        children = obj.get_children().filter(is_deleted=False)
         return PlantHierarchyTreeSerializer(children, many=True).data
 
 
-class LoopSerializer(serializers.ModelSerializer):
-    """Serializer for Loop model."""
+class HierarchyMoveSerializer(serializers.Serializer):
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=PlantHierarchy.alive.all(), help_text="New parent node"
+    )
+    expected_row_version = serializers.IntegerField(required=False, min_value=1)
 
+
+# =============================================================================
+# Instrument index
+# =============================================================================
+
+
+class LoopSerializer(Base):
     unit_name = serializers.CharField(source="unit.name", read_only=True)
     unit_code = serializers.CharField(source="unit.code", read_only=True)
     tags_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Loop
-        fields = [
-            "id",
+        fields = BASE + [
             "loop_tag",
             "function",
             "suffix",
@@ -198,33 +180,27 @@ class LoopSerializer(serializers.ModelSerializer):
             "description",
             "is_active",
             "tags_count",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = RO
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_tags_count(self, obj):
-        return obj.tags.count()
+        return obj.tags.filter(is_deleted=False).count()
 
     def validate_unit(self, value):
-        """Ensure unit is of type UNIT."""
-        if value.node_type != PlantHierarchy.NodeType.UNIT:
+        if value.is_deleted or value.node_type != PlantHierarchy.NodeType.UNIT:
             raise serializers.ValidationError(
-                "Loop must be assigned to a UNIT, not a PLANT or AREA."
+                "Loop must be assigned to an existing UNIT node."
             )
         return value
 
 
-class InstrumentTypeSerializer(serializers.ModelSerializer):
-    """Serializer for InstrumentType model."""
-
+class InstrumentTypeSerializer(Base):
     tags_count = serializers.SerializerMethodField()
 
     class Meta:
         model = InstrumentType
-        fields = [
-            "id",
+        fields = BASE + [
             "name",
             "code",
             "category",
@@ -233,30 +209,26 @@ class InstrumentTypeSerializer(serializers.ModelSerializer):
             "default_spec_data",
             "is_active",
             "tags_count",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = RO
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_tags_count(self, obj):
-        return obj.tags.count()
+        return obj.tags.filter(is_deleted=False).count()
 
 
 class InstrumentTypeListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for InstrumentType listing."""
-
     class Meta:
         model = InstrumentType
-        fields = ["id", "name", "code", "category", "is_active"]
+        fields = ["id", "name", "code", "category", "is_active", "row_version"]
 
 
-class TagSerializer(serializers.ModelSerializer):
-    """Serializer for Tag model."""
-
+class TagSerializer(Base):
     unit_name = serializers.CharField(source="unit.name", read_only=True)
     unit_code = serializers.CharField(source="unit.code", read_only=True)
-    loop_tag = serializers.CharField(source="loop.loop_tag", read_only=True)
+    loop_tag = serializers.CharField(
+        source="loop.loop_tag", read_only=True, default=None
+    )
     instrument_type_name = serializers.CharField(
         source="instrument_type.name", read_only=True
     )
@@ -267,8 +239,7 @@ class TagSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = [
-            "id",
+        fields = BASE + [
             "tag_number",
             "unit",
             "unit_name",
@@ -282,56 +253,28 @@ class TagSerializer(serializers.ModelSerializer):
             "description",
             "spec_data",
             "status",
-            "revision",
             "full_tag",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "revision", "created_at", "updated_at"]
+        read_only_fields = RO
 
     def validate_unit(self, value):
-        """Ensure unit is of type UNIT."""
-        if value.node_type != PlantHierarchy.NodeType.UNIT:
+        if value.is_deleted or value.node_type != PlantHierarchy.NodeType.UNIT:
             raise serializers.ValidationError(
-                "Tag must be assigned to a UNIT, not a PLANT or AREA."
+                "Tag must be assigned to an existing UNIT node."
             )
         return value
 
-    def validate(self, attrs):
-        """Cross-field validation."""
-        unit = attrs.get("unit", getattr(self.instance, "unit", None))
-        loop = attrs.get("loop", getattr(self.instance, "loop", None))
-        instrument_type = attrs.get(
-            "instrument_type", getattr(self.instance, "instrument_type", None)
-        )
-        spec_data = attrs.get("spec_data", getattr(self.instance, "spec_data", {}))
-
-        # Validate loop belongs to the same unit
-        if loop and unit:
-            if loop.unit_id != unit.id:
-                raise serializers.ValidationError(
-                    {
-                        "loop": f"Loop must belong to the same unit as the tag. "
-                        f"Tag unit: {unit.code}, Loop unit: {loop.unit.code}"
-                    }
-                )
-
-        # Validate spec_data against instrument_type schema
-        if instrument_type and spec_data:
-            is_valid, errors = instrument_type.validate_spec_data(spec_data)
-            if not is_valid:
-                raise serializers.ValidationError(
-                    {"spec_data": f"Validation failed: {'; '.join(errors)}"}
-                )
-
-        return attrs
+    def validate_loop(self, value):
+        if value is not None and value.is_deleted:
+            raise serializers.ValidationError("Loop has been deleted.")
+        return value
 
 
 class TagListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for Tag listing (grid view)."""
-
     unit_code = serializers.CharField(source="unit.code", read_only=True)
-    loop_tag = serializers.CharField(source="loop.loop_tag", read_only=True)
+    loop_tag = serializers.CharField(
+        source="loop.loop_tag", read_only=True, default=None
+    )
     instrument_type_code = serializers.CharField(
         source="instrument_type.code", read_only=True
     )
@@ -341,30 +284,117 @@ class TagListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "tag_number",
+            "unit",
             "unit_code",
+            "loop",
             "loop_tag",
+            "instrument_type",
             "instrument_type_code",
             "service",
             "status",
-            "revision",
+            "row_version",
+            "updated_at",
         ]
 
 
-class TagBulkUpdateSerializer(serializers.Serializer):
-    """Serializer for bulk updating tags."""
+# =============================================================================
+# Naming conventions (§15.5) and tag numbers (§15.7)
+# =============================================================================
 
-    ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        help_text="List of tag IDs to update",
+
+class NamingConventionSerializer(Base):
+    hierarchy_format_display = serializers.CharField(
+        source="get_hierarchy_format_display", read_only=True
     )
-    status = serializers.ChoiceField(
-        choices=Tag.Status.choices,
-        required=False,
-        help_text="New status for all selected tags",
+
+    class Meta:
+        model = NamingConvention
+        fields = BASE + [
+            "name",
+            "entity_type",
+            "hierarchy_format",
+            "hierarchy_format_display",
+            "pattern",
+            "pattern_template",
+            "segment_definitions",
+            "separator",
+            "description",
+            "examples",
+            "validation_message",
+            "is_active",
+            "is_default",
+            "priority",
+        ]
+        read_only_fields = RO
+
+
+class NamingTemplateSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    name = serializers.CharField()
+    entity_type = serializers.CharField()
+    hierarchy_format = serializers.CharField()
+    pattern_template = serializers.CharField()
+    pattern = serializers.CharField()
+    examples = serializers.ListField(child=serializers.CharField())
+    segments = serializers.ListField(child=serializers.DictField())
+
+
+class FromTemplateSerializer(serializers.Serializer):
+    template = serializers.ChoiceField(choices=[])
+    name = serializers.CharField(required=False, max_length=200)
+    is_default = serializers.BooleanField(required=False, default=False)
+
+    def __init__(self, *args, **kwargs):
+        from .naming import PRESET_TEMPLATES
+
+        super().__init__(*args, **kwargs)
+        self.fields["template"].choices = [t["code"] for t in PRESET_TEMPLATES]
+
+
+class ConventionTestSerializer(serializers.Serializer):
+    number = serializers.CharField(max_length=100)
+    unit_id = serializers.IntegerField(required=False)
+
+
+class NumberValidateSerializer(serializers.Serializer):
+    number = serializers.CharField(max_length=100)
+    unit_id = serializers.IntegerField(required=False)
+    instrument_type_id = serializers.IntegerField(required=False)
+    entity_type = serializers.ChoiceField(
+        choices=NamingConvention.EntityType.choices, default="TAG"
     )
-    loop = serializers.PrimaryKeyRelatedField(
-        queryset=Loop.objects.all(),
-        required=False,
-        allow_null=True,
-        help_text="New loop for all selected tags",
+    naming_convention_id = serializers.IntegerField(required=False)
+
+
+class NumberParseSerializer(serializers.Serializer):
+    number = serializers.CharField(max_length=100)
+    entity_type = serializers.ChoiceField(
+        choices=NamingConvention.EntityType.choices, default="TAG"
     )
+    naming_convention_id = serializers.IntegerField(required=False)
+
+
+class NumberGenerateSerializer(serializers.Serializer):
+    unit_id = serializers.IntegerField()
+    instrument_type_id = serializers.IntegerField(required=False)
+    entity_type = serializers.ChoiceField(
+        choices=[("TAG", "Tag"), ("LOOP", "Loop")], default="TAG"
+    )
+    naming_convention_id = serializers.IntegerField(required=False)
+
+
+class NamingResultSerializer(serializers.Serializer):
+    valid = serializers.BooleanField()
+    number = serializers.CharField()
+    segments = serializers.DictField(child=serializers.CharField())
+    errors = serializers.ListField(child=serializers.DictField())
+    naming_convention_id = serializers.IntegerField(allow_null=True)
+    expected_pattern = serializers.CharField(allow_null=True)
+    message = serializers.CharField()
+
+
+class GeneratedNumberSerializer(serializers.Serializer):
+    generated_number = serializers.CharField()
+    segments = serializers.DictField(child=serializers.CharField())
+    next_sequence = serializers.IntegerField()
+    naming_convention_id = serializers.IntegerField()

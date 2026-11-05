@@ -50,7 +50,9 @@
     "all": "全部",
     "filter": "过滤",
     "reset": "重置",
-    "back": "返回"
+    "back": "返回",
+    "reload": "重新加载",
+    "conflict": "该记录已被他人修改，请重新加载后再提交您的修改。"
   },
   "header": {
     "admin": "系统管理",
@@ -273,7 +275,12 @@
     "validation": {
       "requiredFields": "项目编号、项目名称、所属组织 是必填项"
     },
-    "schemaHint": "Schema 名将由项目编号生成（小写、下划线）",
+    "schemaHint": "Schema 名由项目编号生成：project_ + 小写字母与数字（如 PRJ-2025-001 → project_prj2025001）",
+    "templateHint": "系统将自动创建默认的 客户 → 厂区 → 装置 层级，之后可重命名或扩展。",
+    "template": {
+      "standard": "标准（客户 → 厂区 → 装置 → 区域 → 单元）",
+      "simple": "简化（客户 → 厂区 → 单元）"
+    },
     "selectOrgPlaceholder": "选择组织",
     "fields": {
       "projectNo": "项目编号",
@@ -284,7 +291,8 @@
       "status": "状态",
       "startDate": "开始日期",
       "endDate": "结束日期",
-      "createdAt": "创建时间"
+      "createdAt": "创建时间",
+      "hierarchyTemplate": "层级模板"
     },
     "placeholder": {
       "projectNo": "如 PRJ-2025-003",
@@ -302,7 +310,7 @@
       "ACTIVE": "进行中",
       "ON_HOLD": "暂停",
       "COMPLETED": "已完成",
-      "CANCELLED": "已取消"
+      "ARCHIVED": "已归档"
     }
   },
   "hierarchy": {
@@ -330,7 +338,6 @@
       "noUnits": "暂无单元",
       "deactivated": "已停用"
     },
-    "lazyPlantRoot": "首次在工厂 {{code}} 下创建区域，将自动创建对应的 PLANT 根节点",
     "checkbox": { "isActive": "启用" },
     "client": {
       "section": "客户",
@@ -455,12 +462,13 @@
       "leader": "负责人",
       "isActive": "启用"
     },
-    "projectLockedHint": "项目关联在创建后不可修改",
+    "projectLockedHint": "仅管理员可修改关联项目",
     "selectProjectPlaceholder": "— 选择工程项目 —",
     "noLeader": "未分配",
+    "unassigned": "尚未关联工程项目",
     "errors": {
       "selectProject": "请选择关联的工程项目",
-      "duplicateCode": "保存失败：代码 \"{{code}}\" 已存在于 {{project}} 下，请换一个代码（每个项目内代码必须唯一）。",
+      "projectTaken": "工程项目 {{project}} 已有项目组（每个项目仅可关联一个项目组）。",
       "unknownProject": "(未知项目 #{{id}})",
       "removeFailed": "移除失败",
       "deleteFailed": "删除失败"
@@ -472,7 +480,7 @@
       "taskForceNotFound": "项目组不存在",
       "addTitle": "添加成员",
       "selectUser": "— 选择用户 —",
-      "roleLabel": "组内角色",
+      "roleLabel": "项目内角色",
       "addLabel": "添加",
       "removeLabel": "移除",
       "removeConfirm": "确认从项目组中移除该成员？",
@@ -480,14 +488,10 @@
       "manageTitle": "成员管理",
       "stat": {
         "total": "成员总数",
-        "leads": "Lead",
-        "reviewers": "Reviewer",
-        "members": "Member"
+        "overrides": "项目内角色覆盖"
       },
       "roleOptions": {
-        "member": "成员",
-        "lead": "组长",
-        "reviewer": "审核人"
+        "system": "沿用系统角色（默认）"
       },
       "noMembers": "暂无成员",
       "addedAt": "加入时间"
@@ -625,7 +629,7 @@
       "tagNumber": "位号",
       "service": "用途",
       "status": "状态",
-      "revision": "版次",
+      "revision": "版本",
       "description": "描述",
       "lastUpdated": "最后更新"
     },
@@ -633,8 +637,7 @@
       "ACTIVE": "已启用",
       "INACTIVE": "已停用",
       "PENDING": "待处理",
-      "UNDER_REVIEW": "审核中",
-      "DELETED": "已删除"
+      "UNDER_REVIEW": "审核中"
     },
     "action": {
       "view": "查看",
@@ -653,7 +656,7 @@
     "loadFailed": "位号加载失败",
     "saveFailed": "保存失败",
     "noService": "无用途描述",
-    "revision": "版次 {{n}}",
+    "revision": "版本 {{n}}",
     "action": {
       "history": "历史",
       "duplicate": "复制",

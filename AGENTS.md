@@ -11,7 +11,7 @@ Web 版仪表工程设计系统（对标 Hexagon SPI）：Django 5.2 + DRF（Pyt
 ## 硬性规则（违反即返工）
 
 1. **租户边界**：TENANT_APPS 业务表**禁止**出现 `domain_id`/`project_id` 列——schema 即隔离边界。仅 public schema 跨项目模型使用 `project_id`。
-2. **跨 schema 引用模式**：tenant 模型与 shared 模型之间**禁止真实 ForeignKey**。跨 schema 引用一律存 `project_id` 纯 `IntegerField` 并暴露 `project` property 显式查询（参照 `apps/administration/models.py` 的 `ProjectMembership`/`ProjectTaskForce`/`AuditLog`）。
+2. **跨 schema 引用模式**：tenant 模型与 shared 模型之间**禁止真实 ForeignKey**。跨 schema 引用一律存 `project_id` 纯 `IntegerField` 并暴露 `project` property 显式查询（参照 `apps/administration/models.py` 的 `ProjectTaskForce`、`apps/audit/models.py` 的 `AuditLog`；租户表的 `created_by_id/updated_by_id` 同理，见 `apps/core/models.py::AuditedModel`）。
 3. **迁移命令**：一律 `migrate_schemas`，禁用裸 `migrate`（只动 public schema）。新增 tenant 迁移后必须跑 `migrate_schemas` 让所有既有租户生效。`ProjectTenant` 的 `auto_create_schema=True` 意味着保存新行即建 schema——测试中慎用。
 4. **用户模型**：只经 `settings.AUTH_USER_MODEL` 引用（`administration.User`），禁止直接 import。
 5. **Service 层**：业务写操作经 Service 层；ViewSet 不写复杂业务逻辑。
@@ -53,14 +53,15 @@ uv run pytest tests/test_tenant_isolation.py -x
 - `frontend/src/lib/`（`api.ts` 与 `utils.ts`）已纳入版本控制。根 `.gitignore` 的 Python `lib/` 规则曾误忽略该目录，现由 `!frontend/src/lib/` 例外放行——**禁止删除该例外**；在其它 `lib/` 目录下新增前端文件前，先用 `git check-ignore -v <路径>` 确认未被忽略。
 - mypy 未配置：暂不作为 V 门槛；引入配置属于独立小 WP，不得夹带。
 - pytest 已配置于 `backend/pyproject.toml` 的 `[tool.pytest.ini_options]`（`DJANGO_SETTINGS_MODULE=config.settings`、`testpaths=["tests"]`）；pytest-django 自建 `test_` 数据库，不触碰开发库。跨 app / 租户级测试放 `backend/tests/`，共享 fixture（含会话级双租户 `isolation_tenants`）在 `backend/tests/conftest.py`。
-- **RBAC（已裁决，决策 D5，见 SPECIFICATION.md §4.12.1/§15.2.1）**：权限等级维持代码现行 **5 级** `Role.Level`（禁止增改枚举，Level 2 预留）；系统预设角色为 **7 个**（§15.2.2 表，`is_system_role=True`），缺失的角色以数据迁移补齐（WP-02 交付物）。权限判定走 `Role.permissions` 矩阵，禁止按 `role.code` 硬编码业务分支（Administrator 旁路除外）。
+- **RBAC（已裁决，决策 D5，见 SPECIFICATION.md §4.12.1/§15.2.1）**：权限等级维持代码现行 **5 级** `Role.Level`（禁止增改枚举，Level 2 预留）；系统预设角色为 **7 个**（§15.2.2 表，`is_system_role=True`），缺失的角色以数据迁移补齐（已交付：`administration.0007`，定义见 `apps/administration/rbac.py`）。权限判定走 `Role.permissions` 矩阵（`RoleMatrixPermission`：视图声明 `rbac_resource`，未声明者仅 Administrator 可用），禁止按 `role.code` 硬编码业务分支（Administrator 旁路除外）。
 - `docs/` 内部优先级：SPECIFICATION.md（唯一 spec，架构与功能双重权威）> IMPLEMENTATION.md（现状记录，只描述已建成的，不构成需求）> DEVELOPMENT_ROADMAP.md / PRD.md > README（最旧，License 徽章已知有误）。IMPLEMENTATION.md 与代码不符时，以代码为准并更新 IMPLEMENTATION.md。
 
 ## 常用路径与约定
 
 - 所有模型继承 `apps.core.models.TimeStampedModel`。
-- 路由：工程 `/api/engineering/`，管理 `/api/admin/` 与 `/api/tenants/`；JWT `/api/token/`；DRF 默认 `IsAuthenticated`，`PAGE_SIZE=50`。
-- 租户切换：`HeaderBasedTenantMiddleware` 按 `X-Project-ID` 头选 schema；`/admin/` 与 `/api/token` 恒走 public。
+- 路由：全部 API 在 `/api/v1/<resource>/`（决策 D2，`backend/config/api_v1.py`）；JWT `/api/v1/auth/login|refresh/`（`/api/token/*` 为带 Deprecation/Sunset 头的废弃别名，D1）；豁免 `/admin/` 与 `/api/docs|redoc|schema/`。DRF 默认权限 `IsAuthenticated` + 项目成员校验 + RBAC 矩阵；分页 `?page_size=`（默认 50，最大 500）；错误体为 §4.2.2 `{"error": {...}}`。
+- 租户切换：`HeaderBasedTenantMiddleware` 按 `X-Project-ID` 头选 schema；非法/未知/无权的头一律 403 并重置到 public；`PUBLIC_ONLY_PREFIXES`（auth、me、tenants、users、roles、organizations、task-forces、audit-logs…）恒走 public；租户端点缺头返回 400 `AUTH_PROJECT_REQUIRED`。
+- 写操作：经 `apps/*/services.py`（`apps.core.services.CrudService`：full_clean + 事务 + 审计 + `row_version`）；租户业务表继承 `apps.core.models.TenantBaseModel`（软删除，更新须带 `expected_row_version`，不匹配 409）。
 - Ruff/Black line-length 88；Vite alias `@` → `src`；前端 dev 代理 `/api` → `:8000`。
 
 ## GitNexus 使用边界

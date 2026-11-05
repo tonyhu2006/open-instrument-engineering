@@ -50,7 +50,9 @@
     "all": "All",
     "filter": "Filter",
     "reset": "Reset",
-    "back": "Back"
+    "back": "Back",
+    "reload": "Reload",
+    "conflict": "This record was changed by someone else. Reload it and apply your changes again."
   },
   "header": {
     "admin": "Administration",
@@ -273,7 +275,12 @@
     "validation": {
       "requiredFields": "Project number, name and organization are required."
     },
-    "schemaHint": "Schema name will be derived from the project number (lowercase, underscores).",
+    "schemaHint": "Schema name is derived from the project number: project_ + lowercase letters and digits (e.g. PRJ-2025-001 → project_prj2025001).",
+    "templateHint": "The system creates the default Client → Site → Plant chain; you can rename or extend it afterwards.",
+    "template": {
+      "standard": "Standard (Client → Site → Plant → Area → Unit)",
+      "simple": "Simple (Client → Site → Unit)"
+    },
     "selectOrgPlaceholder": "Select organization",
     "fields": {
       "projectNo": "Project No.",
@@ -284,7 +291,8 @@
       "status": "Status",
       "startDate": "Start Date",
       "endDate": "End Date",
-      "createdAt": "Created at"
+      "createdAt": "Created at",
+      "hierarchyTemplate": "Hierarchy template"
     },
     "placeholder": {
       "projectNo": "e.g. PRJ-2025-003",
@@ -302,7 +310,7 @@
       "ACTIVE": "Active",
       "ON_HOLD": "On Hold",
       "COMPLETED": "Completed",
-      "CANCELLED": "Cancelled"
+      "ARCHIVED": "Archived"
     }
   },
   "hierarchy": {
@@ -330,7 +338,6 @@
       "noUnits": "No units yet",
       "deactivated": "Deactivated"
     },
-    "lazyPlantRoot": "First Area under plant {{code}} — the corresponding PLANT root node will be created automatically.",
     "checkbox": { "isActive": "Active" },
     "client": {
       "section": "Client",
@@ -455,12 +462,13 @@
       "leader": "Leader",
       "isActive": "Active"
     },
-    "projectLockedHint": "Project link cannot be changed once the task force is created.",
+    "projectLockedHint": "Only administrators can change the linked project.",
     "selectProjectPlaceholder": "— Select project —",
     "noLeader": "Unassigned",
+    "unassigned": "Not assigned to a project",
     "errors": {
       "selectProject": "Please select a linked project",
-      "duplicateCode": "Save failed: code \"{{code}}\" already exists under project {{project}}. Codes must be unique within a project.",
+      "projectTaken": "Project {{project}} already has a task force (one task force per project).",
       "unknownProject": "(unknown project #{{id}})",
       "removeFailed": "Failed to remove member",
       "deleteFailed": "Failed to delete task force"
@@ -472,7 +480,7 @@
       "taskForceNotFound": "Task force not found",
       "addTitle": "Add Member",
       "selectUser": "— Select user —",
-      "roleLabel": "Role within task force",
+      "roleLabel": "Role in this project",
       "addLabel": "Add",
       "removeLabel": "Remove",
       "removeConfirm": "Remove this member from the task force?",
@@ -480,14 +488,10 @@
       "manageTitle": "Manage Members",
       "stat": {
         "total": "Members",
-        "leads": "Leads",
-        "reviewers": "Reviewers",
-        "members": "Members (role)"
+        "overrides": "Project role overrides"
       },
       "roleOptions": {
-        "member": "Member",
-        "lead": "Lead",
-        "reviewer": "Reviewer"
+        "system": "System role (default)"
       },
       "noMembers": "No members yet",
       "addedAt": "Added at"
@@ -625,7 +629,7 @@
       "tagNumber": "Tag Number",
       "service": "Service",
       "status": "Status",
-      "revision": "Rev",
+      "revision": "Ver.",
       "description": "Description",
       "lastUpdated": "Last Updated"
     },
@@ -633,8 +637,7 @@
       "ACTIVE": "Active",
       "INACTIVE": "Inactive",
       "PENDING": "Pending",
-      "UNDER_REVIEW": "Under Review",
-      "DELETED": "Deleted"
+      "UNDER_REVIEW": "Under Review"
     },
     "action": {
       "view": "View",
@@ -653,7 +656,7 @@
     "loadFailed": "Failed to load tag",
     "saveFailed": "Failed to save",
     "noService": "No service description",
-    "revision": "Rev {{n}}",
+    "revision": "Version {{n}}",
     "action": {
       "history": "History",
       "duplicate": "Duplicate",

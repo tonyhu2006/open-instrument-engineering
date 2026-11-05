@@ -17,8 +17,11 @@ import {
 import { Select } from '@/components/ui/select'
 import { RoleGuard } from '@/components/auth'
 import {
+  apiErrorMessage,
   projectTenantApi,
   organizationCrudApi,
+  type HierarchyConfig,
+  type ProjectStatus,
   type ProjectTenant,
   type Organization,
 } from '@/lib/api'
@@ -26,16 +29,18 @@ import { AdminTable, type AdminColumn } from './components/AdminTable'
 import { AdminPageHeader } from './components/AdminPageHeader'
 import { usePermissions } from '@/hooks/usePermissions'
 
-type ProjectStatus = ProjectTenant['status']
-
-const STATUS_KEYS: ProjectStatus[] = ['ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED']
+// §15.4.1 project status set
+const STATUS_KEYS: ProjectStatus[] = ['ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']
 
 const STATUS_VARIANTS: Record<ProjectStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   ACTIVE: 'default',
   ON_HOLD: 'secondary',
   COMPLETED: 'outline',
-  CANCELLED: 'destructive',
+  ARCHIVED: 'destructive',
 }
+
+// §15.4.6 hierarchy templates offered at creation (step ②)
+const TEMPLATE_KEYS: NonNullable<HierarchyConfig['template']>[] = ['standard', 'simple']
 
 export function ProjectsPage() {
   return (
@@ -115,8 +120,7 @@ function ProjectsPageInner() {
       setEditing(null)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.saveFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.saveFailed')}: ${apiErrorMessage(e)}`)
     } finally {
       setSaving(false)
     }
@@ -137,8 +141,7 @@ function ProjectsPageInner() {
       await projectTenantApi.delete(project.id)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.deleteFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.deleteFailed')}: ${apiErrorMessage(e)}`)
     }
   }
 
@@ -196,7 +199,7 @@ function ProjectsPageInner() {
         searchPlaceholder={t('projects.searchPlaceholder')}
         onRefresh={load}
         onCreate={
-          perms.canManageProjects
+          perms.canCreateProjects
             ? () =>
                 setEditing({
                   project_no: '',
@@ -204,7 +207,7 @@ function ProjectsPageInner() {
                   description: '',
                   status: 'ACTIVE',
                   organization_id: orgs[0]?.id,
-                  hierarchy_config: {},
+                  hierarchy_config: { template: 'standard', auto_create_defaults: true },
                 })
             : undefined
         }
@@ -236,7 +239,7 @@ function ProjectsPageInner() {
             >
               <Edit className="h-4 w-4" />
             </Button>
-            {perms.isAdmin && (
+            {perms.canDeleteProjects && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -366,6 +369,32 @@ function ProjectsPageInner() {
                   />
                 </div>
               </div>
+
+              {!editing.id && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="prj-template">{t('projects.fields.hierarchyTemplate')}</Label>
+                  <Select
+                    id="prj-template"
+                    value={editing.hierarchy_config?.template ?? 'standard'}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        hierarchy_config: {
+                          template: e.target.value as HierarchyConfig['template'],
+                          auto_create_defaults: true,
+                        },
+                      })
+                    }
+                  >
+                    {TEMPLATE_KEYS.map((k) => (
+                      <option key={k} value={k}>
+                        {t(`projects.template.${k}`)}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{t('projects.templateHint')}</p>
+                </div>
+              )}
 
               <div className="grid gap-1.5">
                 <Label htmlFor="prj-desc">{t('projects.fields.description')}</Label>

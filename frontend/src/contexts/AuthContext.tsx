@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from 'react'
-import { authApi, type UserProfile } from '@/lib/api'
+import { apiError, authApi, type UserProfile } from '@/lib/api'
 
 interface AuthContextType {
   user: UserProfile | null
@@ -63,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       return true
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { detail?: string } } }
-      const message = errorObj.response?.data?.detail || 'Login failed. Please check your credentials.'
+      const message =
+        apiError(err)?.message || 'Login failed. Please check your credentials.'
       setError(message)
       setIsLoading(false)
       setIsAuthenticated(false)

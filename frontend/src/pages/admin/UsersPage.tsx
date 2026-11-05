@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { RoleGuard } from '@/components/auth'
 import {
+  apiErrorMessage,
   userApi,
   roleApi,
   organizationCrudApi,
@@ -97,21 +98,22 @@ function UsersPageInner() {
     setSaving(true)
     try {
       const payload: UserFormState = { ...editing }
-      // Don't send empty password on update
-      if (editing.id && !payload.password) {
+      if (editing.id) {
+        // Passwords change only through POST /users/{id}/reset-password/ (§15.7)
+        const newPassword = payload.password
         delete payload.password
         delete payload.password_confirm
-      }
-      if (editing.id) {
         await userApi.update(editing.id, payload)
+        if (newPassword) {
+          await userApi.resetPassword(editing.id, newPassword, editing.password_confirm ?? '')
+        }
       } else {
         await userApi.create(payload)
       }
       setEditing(null)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.saveFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.saveFailed')}: ${apiErrorMessage(e)}`)
     } finally {
       setSaving(false)
     }
@@ -123,8 +125,7 @@ function UsersPageInner() {
       await userApi.delete(u.id)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.deleteFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.deleteFailed')}: ${apiErrorMessage(e)}`)
     }
   }
 

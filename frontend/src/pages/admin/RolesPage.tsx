@@ -15,7 +15,13 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { RoleGuard } from '@/components/auth'
-import { roleApi, organizationCrudApi, type Role, type Organization } from '@/lib/api'
+import {
+  apiErrorMessage,
+  roleApi,
+  organizationCrudApi,
+  type Role,
+  type Organization,
+} from '@/lib/api'
 import { AdminTable, type AdminColumn } from './components/AdminTable'
 import { AdminPageHeader } from './components/AdminPageHeader'
 
@@ -104,8 +110,7 @@ function RolesPageInner() {
       setEditing(null)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.saveFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.saveFailed')}: ${apiErrorMessage(e)}`)
     } finally {
       setSaving(false)
     }
@@ -121,8 +126,7 @@ function RolesPageInner() {
       await roleApi.delete(r.id)
       await load()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      alert(`${t('common.deleteFailed')}: ${JSON.stringify(err.response?.data ?? e)}`)
+      alert(`${t('common.deleteFailed')}: ${apiErrorMessage(e)}`)
     }
   }
 
